@@ -1,0 +1,38 @@
+# Ignored local files
+.claude/
+.claude
+DESIGN.md
+design.md
+allaboutourproject.md
+allaboutourproject.html
+allaboutourproject.*
+allaboutourproject*
+* (1).*
+build_site.py
+
+# Legacy web build cache (frontend is the active app)
+web/
+
+# Secrets — never commit real env files (only *.env.example)
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
+
+# Build and tool output
+node_modules/
+extension/.output/
+extension/.wxt/
+agent/.venv/
+__pycache__/
+*.pyc
+api/bin/
+*.exe
+
+# Local run logs
+*.log
+
+# IDE configs and cache
+.gemini/
