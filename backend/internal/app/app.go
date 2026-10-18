@@ -37,7 +37,38 @@ func New(cfg config.Config, pool *pgxpool.Pool) *App {
 // Start launches background workers (AI pipeline) until ctx ends.
 func (a *App) Start(ctx context.Context) { a.pipeline.start(ctx) }
 
+// cors lets the web app call this API from its own address (for example Firebase Hosting) with
+// "Authorization: Bearer". Only the addresses in WEB_ORIGINS are allowed.
+func (a *App) cors(c *gin.Context) {
+	origin := c.GetHeader("Origin")
+	allowed := false
+	for _, o := range a.cfg.WebOrigins {
+		if origin != "" && strings.EqualFold(strings.TrimRight(o, "/"), origin) {
+			allowed = true
+			break
+		}
+	}
+	if allowed {
+		h := c.Writer.Header()
+		h.Set("Access-Control-Allow-Origin", origin)
+		h.Set("Access-Control-Allow-Credentials", "true")
+		h.Add("Vary", "Origin")
+		if c.Request.Method == http.MethodOptions {
+			h.Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
+			h.Set("Access-Control-Allow-Headers", "Authorization, Content-Type, Mcp-Session-Id, Mcp-Protocol-Version, Last-Event-ID")
+			h.Set("Access-Control-Max-Age", "86400")
+		}
+		h.Set("Access-Control-Expose-Headers", "Mcp-Session-Id")
+	}
+	if c.Request.Method == http.MethodOptions && c.GetHeader("Access-Control-Request-Method") != "" {
+		c.AbortWithStatus(http.StatusNoContent)
+		return
+	}
+	c.Next()
+}
+
 func (a *App) Routes(e *gin.Engine) {
+	e.Use(a.cors) // on the engine, so preflight requests to any path are answered too
 	r := e.Group("/api/v1")
 	r.GET("/healthz", func(c *gin.Context) { c.JSON(200, gin.H{"ok": true}) })
 	r.GET("/readyz", a.readyz)

@@ -269,12 +269,8 @@ func (a *App) verifyEmail(c *gin.Context) error {
 	if err != nil {
 		return err
 	}
-	if err := a.setSessionCookie(c, u.ID); err != nil {
-		return err
-	}
 	slog.Info("[AUTH] account created", "user_id", u.ID, "via", "email")
-	c.JSON(201, gin.H{"user": u})
-	return nil
+	return a.signedIn(c, 201, u)
 }
 
 // resendCode sends a new sign-up code for a sign-up that is waiting for confirmation.
@@ -362,12 +358,8 @@ func (a *App) resetPassword(c *gin.Context) error {
 	if _, err := a.db.Exec(c, `UPDATE users SET password_hash=$2 WHERE id=$1`, u.ID, string(hash)); err != nil {
 		return err
 	}
-	if err := a.setSessionCookie(c, u.ID); err != nil {
-		return err
-	}
 	slog.Info("[AUTH] password reset", "user_id", u.ID)
-	c.JSON(200, gin.H{"user": u})
-	return nil
+	return a.signedIn(c, 200, u)
 }
 
 // createUser inserts a verified account (email code confirmed, or signed in with Google).

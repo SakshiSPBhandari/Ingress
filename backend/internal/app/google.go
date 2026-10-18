@@ -24,8 +24,15 @@ var googleHTTP = &http.Client{Timeout: 15 * time.Second}
 
 func (a *App) webOrigin() string { return strings.TrimRight(a.cfg.WebOrigins[0], "/") }
 
-// Google sends the user back to the web app address, which forwards /api to this backend.
-func (a *App) googleRedirectURI() string { return a.webOrigin() + "/api/v1/auth/google/callback" }
+// Google sends the user back to this backend: its public address (PUBLIC_API_URL) when the web app is hosted
+// elsewhere, otherwise the web app address, which forwards /api here.
+func (a *App) googleRedirectURI() string {
+	base := a.cfg.PublicAPIURL
+	if base == "" {
+		base = a.webOrigin()
+	}
+	return base + "/api/v1/auth/google/callback"
+}
 
 // safeNextPath keeps redirects inside the web app.
 func safeNextPath(p string) string {
@@ -100,7 +107,8 @@ func (a *App) googleCallback(c *gin.Context) {
 		a.googleFail(c, "google_failed")
 		return
 	}
-	if err := a.setSessionCookie(c, u.ID); err != nil {
+	tok, err := a.newSession(c, u.ID)
+	if err != nil {
 		a.googleFail(c, "google_failed")
 		return
 	}
@@ -109,7 +117,9 @@ func (a *App) googleCallback(c *gin.Context) {
 	if created { // new accounts see the extension install steps first
 		next = "/extension?next=" + url.QueryEscape(next)
 	}
-	c.Redirect(http.StatusFound, a.webOrigin()+next)
+	// The web app may be on another address, so the session token travels in the URL fragment, which browsers
+	// never send to any server. The /signed-in page stores it and removes it from the address bar at once.
+	c.Redirect(http.StatusFound, a.webOrigin()+"/signed-in#"+url.Values{"token": {tok}, "next": {next}}.Encode())
 }
 
 // googleProfile exchanges the one-time code for a token and reads the user's profile from Google.

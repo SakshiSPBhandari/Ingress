@@ -32,6 +32,9 @@ type Config struct {
 	GoogleClientID, GoogleClientSecret string
 	// Development only: email codes are returned in the response instead of emailed (automated tests).
 	DevAuthCodes bool
+	// Public address of this backend (for example https://research-map-api.onrender.com) when the web app is
+	// hosted on another address. Used for the Google sign-in return address. Empty: the web app forwards /api here.
+	PublicAPIURL string
 }
 
 func (c Config) IsProduction() bool { return c.Env == "production" }
@@ -54,6 +57,10 @@ func Load() (Config, error) {
 	c.SMTPUser, c.SMTPPassword = get("SMTP_USER", ""), strings.ReplaceAll(os.Getenv("SMTP_PASSWORD"), " ", "")
 	c.MailFrom = get("MAIL_FROM", c.SMTPUser)
 	c.GoogleClientID, c.GoogleClientSecret = get("GOOGLE_CLIENT_ID", ""), get("GOOGLE_CLIENT_SECRET", "")
+	c.PublicAPIURL = strings.TrimRight(get("PUBLIC_API_URL", ""), "/")
+	if u, err := url.Parse(c.PublicAPIURL); c.PublicAPIURL != "" && (err != nil || u.Scheme == "" || u.Host == "" || u.Path != "") {
+		errs = append(errs, errors.New("PUBLIC_API_URL must look like https://host, without a path"))
+	}
 	if c.SMTPUser != "" && c.SMTPPassword == "" {
 		errs = append(errs, errors.New("SMTP_PASSWORD is required when SMTP_USER is set"))
 	}

@@ -37,17 +37,49 @@ func currentUser(c *gin.Context) *User {
 
 var avatarColors = []string{"#7b5cf0", "#f08a6c", "#3f8a2e", "#2f6fbf", "#c9544f", "#a86f00"}
 
-func (a *App) setSessionCookie(c *gin.Context, userID string) error {
+// newSession signs the user in. The same session token is set as a cookie (web app on the same address as the API)
+// and returned for the response body (web app on another address, which sends it as "Authorization: Bearer").
+func (a *App) newSession(c *gin.Context, userID string) (string, error) {
 	tok, err := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.RegisteredClaims{
 		Subject: userID, IssuedAt: jwt.NewNumericDate(time.Now()), ExpiresAt: jwt.NewNumericDate(time.Now().Add(sessionTTL)),
 	}).SignedString([]byte(a.cfg.JWTSecret))
 	if err != nil {
-		return err
+		return "", err
 	}
 	http.SetCookie(c.Writer, &http.Cookie{Name: cookieName, Value: tok, Path: "/", HttpOnly: true,
 		Secure: a.cfg.IsProduction(), SameSite: http.SameSiteLaxMode, MaxAge: int(sessionTTL.Seconds())})
+	return tok, nil
+}
+
+// signedIn answers a successful sign-in with the user and the session token.
+func (a *App) signedIn(c *gin.Context, status int, u User) error {
+	tok, err := a.newSession(c, u.ID)
+	if err != nil {
+		return err
+	}
+	c.JSON(status, gin.H{"user": u, "token": tok})
 	return nil
 }
+
+// sessionUser reads the user from a session token (JWT).
+func (a *App) sessionUser(c *gin.Context, tok string) (*User, error) {
+	claims := &jwt.RegisteredClaims{}
+	_, err := jwt.ParseWithClaims(tok, claims, func(t *jwt.Token) (any, error) { return []byte(a.cfg.JWTSecret), nil },
+		jwt.WithValidMethods([]string{"HS256"}), jwt.WithExpirationRequired())
+	if err != nil {
+		return nil, httpx.Unauthorized("Session expired. Please sign in again.")
+	}
+	var u User
+	err = a.db.QueryRow(c, `SELECT id,email,name,avatar_color,created_at FROM users WHERE id=$1`, claims.Subject).
+		Scan(&u.ID, &u.Email, &u.Name, &u.AvatarColor, &u.CreatedAt)
+	if err != nil {
+		return nil, httpx.Unauthorized("Please sign in")
+	}
+	return &u, nil
+}
+
+// isSessionToken tells a session JWT ("eyJ…" with three parts) from an API token ("rm_…").
+func isSessionToken(t string) bool { return strings.HasPrefix(t, "eyJ") && strings.Count(t, ".") == 2 }
 
 func (a *App) login(c *gin.Context) error {
 	var b struct{ Email, Password string }
@@ -75,11 +107,7 @@ func (a *App) login(c *gin.Context) error {
 	if bcrypt.CompareHashAndPassword([]byte(hash), []byte(b.Password)) != nil {
 		return httpx.Unauthorized("Email or password is incorrect")
 	}
-	if err := a.setSessionCookie(c, u.ID); err != nil {
-		return err
-	}
-	c.JSON(200, gin.H{"user": u})
-	return nil
+	return a.signedIn(c, 200, u)
 }
 
 func (a *App) logout(c *gin.Context) error {
@@ -94,10 +122,20 @@ func (a *App) me(c *gin.Context) error {
 	return nil
 }
 
-// userFromRequest accepts the session cookie (web app) or a Bearer API token (extension, MCP).
+// userFromRequest accepts a session token (cookie, "Authorization: Bearer", or ?token= on the WebSocket, which
+// cannot send headers from a browser) or a Bearer API token (extension, MCP).
 func (a *App) userFromRequest(c *gin.Context) (*User, error) {
+	bearer := ""
 	if h := c.GetHeader("Authorization"); strings.HasPrefix(h, "Bearer ") {
-		sum := sha256.Sum256([]byte(strings.TrimSpace(strings.TrimPrefix(h, "Bearer "))))
+		bearer = strings.TrimSpace(strings.TrimPrefix(h, "Bearer "))
+	} else if t := c.Query("token"); t != "" && c.FullPath() == "/api/v1/ws" && isSessionToken(t) {
+		bearer = t
+	}
+	if isSessionToken(bearer) {
+		return a.sessionUser(c, bearer)
+	}
+	if bearer != "" {
+		sum := sha256.Sum256([]byte(bearer))
 		var u User
 		err := a.db.QueryRow(c, `UPDATE api_tokens t SET last_used_at=now() FROM users u
 			WHERE t.token_hash=$1 AND t.revoked_at IS NULL AND (t.expires_at IS NULL OR t.expires_at > now()) AND u.id=t.user_id
@@ -112,19 +150,7 @@ func (a *App) userFromRequest(c *gin.Context) (*User, error) {
 	if err != nil || ck == "" {
 		return nil, httpx.Unauthorized("Please sign in")
 	}
-	claims := &jwt.RegisteredClaims{}
-	_, err = jwt.ParseWithClaims(ck, claims, func(t *jwt.Token) (any, error) { return []byte(a.cfg.JWTSecret), nil },
-		jwt.WithValidMethods([]string{"HS256"}), jwt.WithExpirationRequired())
-	if err != nil {
-		return nil, httpx.Unauthorized("Session expired. Please sign in again.")
-	}
-	var u User
-	err = a.db.QueryRow(c, `SELECT id,email,name,avatar_color,created_at FROM users WHERE id=$1`, claims.Subject).
-		Scan(&u.ID, &u.Email, &u.Name, &u.AvatarColor, &u.CreatedAt)
-	if err != nil {
-		return nil, httpx.Unauthorized("Please sign in")
-	}
-	return &u, nil
+	return a.sessionUser(c, ck)
 }
 
 func (a *App) authMiddleware(c *gin.Context) {
