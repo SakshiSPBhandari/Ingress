@@ -189,6 +189,7 @@ export function useWorkspace(workspaceId: string) {
       useSignalsStore.setState({ conflicts: [], radar: null });
       useUiStore.getState().reset();
       restored.current = null;
+      shownNodes.current = null; // the stores are empty again, so the cached graph must be drawn again
     },
     [workspaceId],
   );

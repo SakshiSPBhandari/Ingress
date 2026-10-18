@@ -9,6 +9,8 @@ import { CheckCircle, Crosshair, PencilSimple, Warning } from "@phosphor-icons/r
 import type { Session } from "@/types/api";
 import { sessionApi } from "@/lib/api";
 import { formatDuration } from "@/lib/utils/format";
+import { normalizeUrl } from "@/lib/utils/url";
+import { useGraphStore } from "@/stores/graph";
 import { Modal, Pop } from "@/components/ui/overlay";
 import { Button } from "@/components/ui/button";
 import { Label, Switch, Textarea } from "@/components/ui/primitives";
@@ -210,7 +212,13 @@ export function GoalButton({ session, onEdit }: { session: Session; onEdit: () =
 
 function GoalDetails({ session: s, onEdit }: { session: Session; onEdit: () => void }) {
   const checks = useQuery({ queryKey: ["goal-checks", s.id], queryFn: () => sessionApi.goalChecks(s.id) });
-  const offPages = (checks.data ?? []).filter((c) => !c.on_goal).slice(0, 5);
+  const pages = useGraphStore((st) => st.pages);
+  // Same pages as the counts: only pages on the canvas, shown with their canvas title.
+  const onCanvas = new Map(Object.values(pages).map((p) => [normalizeUrl(p.url), p.title]));
+  const offPages = (checks.data ?? [])
+    .filter((c) => !c.on_goal && onCanvas.has(normalizeUrl(c.url)))
+    .map((c) => ({ ...c, title: onCanvas.get(normalizeUrl(c.url)) || c.title }))
+    .slice(0, 5);
   const checked = s.goal_pages_on + s.goal_pages_off;
 
   return (

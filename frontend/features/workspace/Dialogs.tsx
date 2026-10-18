@@ -240,7 +240,7 @@ export function StopSessionDialog({ workspaceId, sessionId, onStop }: { workspac
       footer={<>
         <Button variant="ghost" onClick={close}>Keep tracking</Button>
         <Button variant="secondary" loading={busy} onClick={async () => { setBusy(true); await onStop(); setBusy(false); close(); }}>Stop</Button>
-        <Button variant="primary" loading={busy} onClick={async () => { setBusy(true); const id = await onStop(); setBusy(false); close(); if (id) router.push(`/w/${workspaceId}/report/${id}`); }}>Stop & generate report</Button>
+        <Button variant="primary" loading={busy} onClick={async () => { setBusy(true); const id = await onStop(); setBusy(false); close(); if (id) router.push(`/w/${workspaceId}/report/${id}?generate=1`); }}>Stop & generate report</Button>
       </>}>
       <p className="text-sm text-ink-soft">Tracking stops and the session is saved. You can generate a Session Report with statistics, summary and references.{!sessionId && " "}</p>
     </Modal>
