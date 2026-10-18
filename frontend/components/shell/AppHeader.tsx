@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { motion } from "motion/react";
-import { GearSix, SignOut, SquaresFour } from "@phosphor-icons/react";
+import { GearSix, PuzzlePiece, SignOut, SquaresFour } from "@phosphor-icons/react";
 import { useAuthStore } from "@/stores/auth";
 import { cn } from "@/lib/utils/cn";
 import { Avatar } from "@/components/ui/primitives";
@@ -11,6 +11,7 @@ import { Logo } from "./Logo";
 
 const NAV = [
   { href: "/workspaces", label: "Workspaces", Icon: SquaresFour },
+  { href: "/extension", label: "Extension", Icon: PuzzlePiece },
   { href: "/settings", label: "Settings", Icon: GearSix },
 ];
 

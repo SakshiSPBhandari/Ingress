@@ -10,6 +10,7 @@ import {
   ChartBar,
   ClockCounterClockwise,
   DotsThreeOutline,
+  DownloadSimple,
   Export,
   Browsers,
   FrameCorners,
@@ -24,10 +25,8 @@ import {
   Record,
   Robot,
   ShareNetwork,
-  SquaresFour,
   Stop,
   Sword,
-  Tray,
   WifiSlash,
   X,
 } from "@phosphor-icons/react";
@@ -38,11 +37,12 @@ import { cn } from "@/lib/utils/cn";
 import { formatClock } from "@/lib/utils/format";
 import { browsingSimulator } from "@/lib/extension/simulator";
 import { API_MODE } from "@/lib/api/config";
-import { extensionBridge } from "@/lib/extension/bridge";
+import { connectExtension, extensionBridge } from "@/lib/extension/bridge";
+import { EXTENSION_ZIP } from "@/features/extension/InstallGuide";
 import { useExtensionStore } from "@/stores/extension";
 import { Button } from "@/components/ui/button";
 import { AvatarStack, Segmented, Tip } from "@/components/ui/primitives";
-import { Menu, MenuContent, MenuItem, MenuLabel, MenuSeparator, MenuTrigger } from "@/components/ui/overlay";
+import { Menu, MenuContent, MenuItem, MenuLabel, MenuSeparator, MenuTrigger, Modal } from "@/components/ui/overlay";
 import { EmptyState, ErrorState, LoadingBlock } from "@/components/ui/states";
 import { UserMenu } from "@/components/shell/AppHeader";
 import { useGraphStore } from "@/stores/graph";
@@ -164,6 +164,8 @@ function TrackingControl({ workspaceId, readOnly }: { workspaceId: string; readO
   }, []);
   const s = c.session;
   const emptyCanvas = useGraphStore((st) => st.nodes.length === 0); // nothing tracked yet: show the way to start
+  const [needExtension, setNeedExtension] = useState(false);
+  const [checking, setChecking] = useState(false);
   if (readOnly) return null;
 
   const answerQuestion = async (goal: string) => {
@@ -173,6 +175,13 @@ function TrackingControl({ workspaceId, readOnly }: { workspaceId: string; readO
   // The goal question is asked once, when the workspace is created. After that one click starts tracking.
   // Only a later session in a workspace that already has pages asks for the goal again.
   const startTracking = async () => {
+    // Tracking needs the Chrome extension: without it no page could reach the canvas.
+    if (API_MODE === "http") {
+      setChecking(true);
+      const ok = await connectExtension().catch(() => false);
+      setChecking(false);
+      if (!ok) return setNeedExtension(true);
+    }
     if (answer === null && !emptyCanvas) return useUiStore.getState().setDialog("goal-start");
     if ((await c.start(answer ?? "")) !== null) {
       clearGoalAnswer(workspaceId);
@@ -183,7 +192,7 @@ function TrackingControl({ workspaceId, readOnly }: { workspaceId: string; readO
     <>
       {!s ? (
         <span className="relative shrink-0">
-          <Button variant="purple" size="sm" onClick={() => void startTracking()} loading={c.busy} aria-label="Start tracking">
+          <Button variant="purple" size="sm" onClick={() => void startTracking()} loading={c.busy || checking} aria-label="Start tracking">
             {/* Phones: icon only, so the top bar fits 360px screens; tablets and up show the full label. */}
             <Record size={16} weight="fill" /> <span className="hidden sm:inline">Start Tracking</span>
           </Button>
@@ -220,6 +229,30 @@ function TrackingControl({ workspaceId, readOnly }: { workspaceId: string; readO
         onSubmit={(goal) => (goalDialog === "ask" ? answerQuestion(goal) : goalDialog === "start" ? c.start(goal) : c.setGoal(goal))}
       />
       <StopSessionDialog workspaceId={workspaceId} sessionId={s?.id ?? null} onStop={c.stop} />
+      <Modal
+        open={needExtension}
+        onOpenChange={setNeedExtension}
+        size="sm"
+        title="Install the Chrome extension first"
+        description="Tracking needs the Research Map extension. You install it once."
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setNeedExtension(false)}>Not now</Button>
+            <Link href={`/extension?next=${encodeURIComponent(`/w/${workspaceId}`)}`}>
+              <Button variant="primary">See the install steps</Button>
+            </Link>
+          </>
+        }
+      >
+        <ol className="space-y-1.5 text-sm text-ink-soft">
+          <li>1. Download and unzip it.</li>
+          <li>2. Open chrome://extensions and turn on Developer mode.</li>
+          <li>3. Click Load unpacked and choose the folder.</li>
+        </ol>
+        <a href={EXTENSION_ZIP} download className="mt-4 inline-flex items-center gap-2 text-sm font-bold text-purple-deep hover:underline">
+          <DownloadSimple size={16} weight="bold" /> Download extension
+        </a>
+      </Modal>
     </>
   );
 }
@@ -292,7 +325,6 @@ function TopBar({ workspaceId, readOnly }: { workspaceId: string; readOnly: bool
   const presence = useCollabStore((s) => s.presence);
   const members = useGraphStore((s) => s.workspace?.members.length ?? 1);
   const conflicts = useSignalsStore((s) => s.conflicts.filter((c) => c.status === "open").length);
-  const inbox = useGraphStore((s) => s.nodes.filter((n) => n.data.node.status === "inbox").length);
   const router = useRouter();
   const lastSession = useSessionStore((s) => s.session);
   // Branches and live presence only matter when other people work in this workspace.
@@ -349,8 +381,6 @@ function TopBar({ workspaceId, readOnly }: { workspaceId: string; readOnly: bool
           <MenuContent>
             <MenuLabel>Insights</MenuLabel>
             <MenuItem onSelect={panel("conflicts")}><Sword size={17} weight="bold" /> Conflict Radar{conflicts ? ` (${conflicts})` : ""}</MenuItem>
-            <MenuItem onSelect={panel("activity")}><Robot size={17} weight="bold" /> AI activity</MenuItem>
-            {inbox > 0 && <MenuItem onSelect={panel("inbox")}><Tray size={17} weight="bold" /> Inbox ({inbox})</MenuItem>}
             <MenuItem onSelect={async () => {
               const list = await sessionApi.list(workspaceId).catch(() => []);
               const id = lastSession?.id ?? list[0]?.id;
@@ -358,7 +388,6 @@ function TopBar({ workspaceId, readOnly }: { workspaceId: string; readOnly: bool
               else toast.info("No sessions yet", { description: "Start Tracking to record a session first." });
             }}><ChartBar size={17} weight="bold" /> Session report</MenuItem>
             <MenuSeparator />
-            <MenuItem onSelect={() => useUiStore.getState().setViewMode("grid")}><SquaresFour size={17} weight="bold" /> Show as cards</MenuItem>
             {!readOnly && <MenuItem onSelect={() => useUiStore.getState().setDialog("share")}><ShareNetwork size={17} weight="bold" /> Share…</MenuItem>}
             <MenuItem onSelect={() => useUiStore.getState().setDialog("export")}><Export size={17} weight="bold" /> Export…</MenuItem>
             <MenuSeparator />

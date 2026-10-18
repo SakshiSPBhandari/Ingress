@@ -24,7 +24,12 @@ import { ConfirmDialog, Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger,
 import { EmptyState, ErrorState, Skeleton } from "@/components/ui/states";
 import { useCreateWorkspace, useDeleteWorkspace, useUpdateWorkspace, useWorkspaces } from "@/features/workspaces/hooks";
 import { ImportDialog } from "@/features/export/ImportDialog";
+import { ExtensionNotice } from "@/features/extension/ExtensionNotice";
 import { pluralize, timeAgo } from "@/lib/utils/format";
+import { sessionApi } from "@/lib/api";
+import { API_MODE } from "@/lib/api/config";
+import { extensionBridge } from "@/lib/extension/bridge";
+import { toast } from "@/lib/toast";
 import type { Tone } from "@/lib/domain/meta";
 
 const TONES: Tone[] = ["lavender", "sun", "mint", "sky", "coral", "pink"];
@@ -123,6 +128,8 @@ function WorkspacesView() {
   const [renaming, setRenaming] = useState<Workspace | null>(null);
   const [renameValue, setRenameValue] = useState("");
   const [deleting, setDeleting] = useState<Workspace | null>(null);
+  const [stopping, setStopping] = useState(false);
+  const deletingTracked = !!deleting?.active_session && deleting.active_session.state !== "stopped";
   const [q, setQ] = useState("");
 
   const list = useMemo(() => (data ?? []).filter((w) => w.title.toLowerCase().includes(q.toLowerCase())), [data, q]);
@@ -156,6 +163,8 @@ function WorkspacesView() {
             </Button>
           </div>
         </div>
+
+        <ExtensionNotice />
 
         {(data?.length ?? 0) > 3 && (
           <div className="relative mt-6 max-w-sm">
@@ -263,17 +272,38 @@ function WorkspacesView() {
       <ConfirmDialog
         open={!!deleting}
         onOpenChange={(o) => !o && setDeleting(null)}
-        title="Delete workspace?"
+        title={deletingTracked ? "Tracking is still on" : "Delete workspace?"}
         danger
-        confirmLabel="Delete workspace"
-        loading={remove.isPending}
+        confirmLabel={deletingTracked ? "Stop tracking and delete" : "Delete workspace"}
+        loading={remove.isPending || stopping}
         message={
-          <>
-            <strong>{deleting?.title}</strong> and all its nodes, notes, sessions and reports will be deleted for every member.
-          </>
+          deletingTracked ? (
+            <>
+              <strong>{deleting?.title}</strong> is being tracked right now. Tracking will stop, and the workspace with all its pages, notes,
+              sessions and reports will be deleted for every member.
+            </>
+          ) : (
+            <>
+              <strong>{deleting?.title}</strong> and all its nodes, notes, sessions and reports will be deleted for every member.
+            </>
+          )
         }
-        onConfirm={() => {
-          remove.mutate(deleting!.id);
+        onConfirm={async () => {
+          const ws = deleting!;
+          if (deletingTracked) {
+            // Stop the session first: a workspace that is being tracked cannot be deleted.
+            setStopping(true);
+            try {
+              await sessionApi.stop(ws.active_session!.id);
+              if (API_MODE === "http") extensionBridge.stopTracking();
+            } catch (e) {
+              toast.apiError(e);
+              setStopping(false);
+              return;
+            }
+            setStopping(false);
+          }
+          remove.mutate(ws.id);
           setDeleting(null);
         }}
       />
