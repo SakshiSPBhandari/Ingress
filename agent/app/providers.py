@@ -1,6 +1,6 @@
 """LLM provider router: a Gemini key pool and a Groq key pool with sequential failover.
 
-Every task goes to Gemini first (the AI Builder Cup requires Google models); Groq is only the backup when every
+Every task goes to Gemini first; Groq is only the backup when every
 Gemini key is busy or failing. Light tasks (radar, methodology, goal plan/check) use the faster Gemini model.
 Each pool tries its keys in order; a key that hits a rate limit / quota is cooled down and the next key is used.
 Retries are bounded (one attempt per key per pool). Key values are never logged — only their slot number.

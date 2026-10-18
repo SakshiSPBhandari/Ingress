@@ -84,7 +84,7 @@ AI assistants can also work on the canvas. Through the built-in MCP server, Gemi
 | Real-time sharing | Share links with view or edit access. Changes appear for everyone at the same time. |
 | Views and search | Canvas, list and timeline views, plus search by meaning and by keywords across a workspace. |
 | Export | Markdown, CSV, BibTeX, JSON, Mermaid and bookmarks, plus a PNG image of the canvas. |
-| AI assistant access (MCP) | Gemini CLI, Claude Code, Cursor and other MCP clients can research directly into a workspace. AI work goes to a separate "AI Agent" branch, so the user reviews it before copying it to the main canvas. |
+| AI assistant access (MCP) | Gemini CLI and other MCP clients can research directly into a workspace. AI work goes to a separate "AI Agent" branch, so the user reviews it before copying it to the main canvas. |
 
 ---
 
@@ -100,7 +100,7 @@ AI assistants can also work on the canvas. Through the built-in MCP server, Gemi
 
 ## How Google Gemini is used
 
-Gemini is the main AI in every step. Requests use `gemini-flash-latest` for longer reasoning and `gemini-flash-lite-latest` for fast checks. Several API keys are rotated automatically, and when a model is busy the request moves to the next model. Groq is kept only as an emergency backup for when Gemini is unavailable.
+Gemini is the main AI in every step. Requests use `gemini-flash-latest` for longer reasoning and `gemini-flash-lite-latest` for fast checks. Several API keys are rotated automatically, and when a model is busy the request moves to the next model.
 
 | Step | What Gemini does |
 |---|---|
@@ -127,7 +127,7 @@ flowchart LR
     subgraph Client["User side"]
         EXT["Chrome extension"]
         BROWSER["Web browser"]
-        ASSIST["AI assistant<br/>(Gemini CLI, Claude Code)"]
+        ASSIST["AI assistant<br/>(Gemini CLI)"]
     end
 
     subgraph GCP["Google Cloud Run"]
@@ -232,7 +232,7 @@ Copy each example file and fill in the values. Real settings files are ignored b
 | File | Main values |
 |---|---|
 | `backend/.env` (from `backend/.env.example`) | `DATABASE_URL`, `JWT_SECRET`, `AGENT_INTERNAL_KEY`, `WEB_ORIGINS`, `AGENT_URL` |
-| `agent/.env` (from `agent/.env.example`) | `AGENT_INTERNAL_KEY` (same value as the backend), `GEMINI_API_KEY_1` to `GEMINI_API_KEY_4`, optional `GROQ_API_KEY` |
+| `agent/.env` (from `agent/.env.example`) | `AGENT_INTERNAL_KEY` (same value as the backend), `GEMINI_API_KEY_1` to `GEMINI_API_KEY_4` |
 | `frontend/.env.local` (from `frontend/.env.example`) | `NEXT_PUBLIC_API_MODE=http`, `API_PROXY_TARGET`, `NEXT_PUBLIC_WS_URL`, `NEXT_PUBLIC_EXTENSION_ID` |
 
 ### 2. Start the three services
@@ -285,12 +285,6 @@ gemini mcp add -s user -t http -H "Authorization: Bearer YOUR_TOKEN" --trust res
 ```
 
 Then start `gemini` and ask, for example: *"Using Research Map, research the best CRM for our 20-person sales team. Set my goal as 'Pick a CRM for our sales team' and add every useful source."* The workspace, goal and sources appear on the canvas while Gemini works.
-
-**Claude Code:**
-
-```bash
-claude mcp add --transport http research-map http://localhost:3000/api/v1/mcp --header "Authorization: Bearer YOUR_TOKEN"
-```
 
 **Other clients:** use the same server address with the token as a Bearer token.
 
@@ -346,7 +340,7 @@ uv run --with mcp --with websockets python ../scripts/mcp_e2e.py --api http://lo
 ## Project structure
 
 ```
-3-idiots/
+Ingress/
   backend/        Go backend: API, capture, AI pipeline, WebSocket, MCP server, database migrations
   agent/          Python AI service: Gemini prompts, provider routing, embeddings, tests
   frontend/       Next.js web app: canvas, views, panels, reports, settings

@@ -34,8 +34,6 @@ yarn-error.log*
 .env*
 !.env.example
 
-# vercel
-.vercel
 
 # typescript
 *.tsbuildinfo
@@ -47,3 +45,7 @@ next-env.d.ts
 
 # Firebase CLI cache
 .firebase/
+
+# Notes written by coding tools (next dev adds AGENTS.md again)
+AGENTS.md
+CLAUDE.md

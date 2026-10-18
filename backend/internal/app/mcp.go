@@ -17,7 +17,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// MCP server (spec §18): AI clients such as Claude use an MCP token. Everything they add goes into the workspace's
+// MCP server (spec §18): AI clients such as Gemini CLI use an MCP token. Everything they add goes into the workspace's
 // "AI Agent" branch with created_via = 'mcp' and the client's name, so a human reviews it before copying to Main.
 // Writes reuse the normal services (ingestPage → Agent 1 → Agent 2 → Agent 3) and broadcast WebSocket events.
 
@@ -84,7 +84,7 @@ func (a *App) mcpAgentSession(ctx context.Context, u *User, wsID, client string)
 
 func ok[T any](v T) (*mcp.CallToolResult, out, error) { return nil, out{v}, nil }
 
-// clientName is the MCP client's self-reported name from the initialize handshake (e.g. "claude-code").
+// clientName is the MCP client's self-reported name from the initialize handshake (e.g. "gemini-cli-mcp-client").
 func clientName(req *mcp.CallToolRequest) string {
 	if req != nil && req.Session != nil {
 		if p := req.Session.InitializeParams(); p != nil && p.ClientInfo != nil {
