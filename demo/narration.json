@@ -1,0 +1,50 @@
+[
+  {
+    "id": "s01_problem",
+    "text": "Hi, this is Research Map. Whenever I research a new tool, explore a project, or make a decision at work, I end up opening dozens of tabs. It becomes hard to find what I read, remember useful information, and pick up where I left off."
+  },
+  {
+    "id": "s02_solution",
+    "text": "Research Map solves this. It's a web app with a Chrome extension that puts every page you visit on one visual canvas, with a short summary. And if you set a goal, it flags pages that may be unrelated."
+  },
+  {
+    "id": "s03_goal",
+    "text": "Let me show you how it works. I create a new workspace and choose whether I have a goal. Today I want to learn the basics of Kubernetes, so I turn goal tracking on. Or I can leave it off and explore freely."
+  },
+  {
+    "id": "s04_start",
+    "text": "Now I click Start Tracking. From this point, I can browse normally. As I open new pages, Research Map records them in my workspace, so I don't have to save every link or organize my research manually."
+  },
+  {
+    "id": "s05_canvas",
+    "text": "Here's my workspace after an hour of research. Every page appears with its title and a preview. The lines show how I moved from the Kubernetes documentation to concepts, services and ingress, so I can follow my research journey."
+  },
+  {
+    "id": "s06_details",
+    "text": "I can click any page to review what I learned. Gemini generates a summary and highlights the key points, so I can quickly refresh my memory without reopening every tab and reading the entire page again."
+  },
+  {
+    "id": "s07_warning",
+    "text": "Now let's see goal tracking in action. Suppose I open a football page. Research Map flags it as unrelated to my goal, and lets me go back or mark it as relevant. Related topics, like Docker, still fit my goal."
+  },
+  {
+    "id": "s08_goal_time",
+    "text": "The canvas also marks off-topic pages, and the goal panel shows my time: forty-six minutes on my goal and four minutes on other topics."
+  },
+  {
+    "id": "s09_report",
+    "text": "When I finish, I get a session report. Gemini summarizes what I learned, with links to my sources, and I can download it as a PDF."
+  },
+  {
+    "id": "s10_share",
+    "text": "Research doesn't always happen alone. I can share my workspace with teammates as view only or edit, and everyone sees the same canvas live."
+  },
+  {
+    "id": "s11_more",
+    "text": "Research Map also supports list and timeline views, exports to Markdown, CSV, and BibTeX, and Conflict Radar, which helps identify sources that disagree. AI assistants, including Gemini CLI, can also contribute research to the canvas."
+  },
+  {
+    "id": "s12_close",
+    "text": "That's Research Map: one connected workspace instead of dozens of lost tabs, with a clear record of what you learned and a quiet check on your goal. Built with Google Gemini. Thanks for watching."
+  }
+]
