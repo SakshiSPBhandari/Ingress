@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { SignIn, Sparkle } from "@phosphor-icons/react";
 import { AuthShell } from "@/features/auth/AuthShell";
-import { FormError, GOOGLE_ERRORS, GoogleSignIn } from "@/features/auth/AuthParts";
+import { FormError, GOOGLE_ERRORS, GoogleSignIn, useAuthOptions } from "@/features/auth/AuthParts";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/primitives";
 import { useAuthStore } from "@/stores/auth";
@@ -22,6 +22,7 @@ function LoginForm() {
   const [touched, setTouched] = useState(false);
   const submitting = useRef(false);
   const googleError = GOOGLE_ERRORS[params.get("error") ?? ""] ?? null;
+  const emailCodes = useAuthOptions().email_codes;
 
   useEffect(() => void bootstrap(), [bootstrap]);
   useEffect(() => {
@@ -57,7 +58,7 @@ function LoginForm() {
           <Input id="email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@company.com" aria-invalid={!!error || (touched && !email.trim())} />
         </div>
         <div>
-          <Label htmlFor="password" hint={<Link href="/forgot" className="font-semibold text-purple-deep hover:underline">Forgot password?</Link>}>Password</Label>
+          <Label htmlFor="password" hint={emailCodes ? <Link href="/forgot" className="font-semibold text-purple-deep hover:underline">Forgot password?</Link> : undefined}>Password</Label>
           <Input id="password" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} aria-invalid={!!error || (touched && !password)} />
         </div>
         <FormError message={error ?? missing ?? googleError} />

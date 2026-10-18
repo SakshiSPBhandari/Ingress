@@ -85,13 +85,19 @@ function GoogleLogo() {
   );
 }
 
-/** "Continue with Google", shown only when the server has Google sign-in turned on. */
-export function GoogleSignIn({ next }: { next: string }) {
-  const [enabled, setEnabled] = useState(false);
+/** What the server offers: Google sign-in, and email codes (sign-up confirmation and password reset). */
+export function useAuthOptions() {
+  const [opts, setOpts] = useState({ google: false, email_codes: API_MODE !== "http" });
   useEffect(() => {
     if (API_MODE !== "http") return;
-    authApi.options().then((o) => setEnabled(o.google)).catch(() => setEnabled(false));
+    authApi.options().then((o) => setOpts({ google: !!o.google, email_codes: o.email_codes !== false })).catch(() => undefined);
   }, []);
+  return opts;
+}
+
+/** "Continue with Google", shown only when the server has Google sign-in turned on. */
+export function GoogleSignIn({ next }: { next: string }) {
+  const enabled = useAuthOptions().google;
   if (!enabled) return null;
   return (
     <>

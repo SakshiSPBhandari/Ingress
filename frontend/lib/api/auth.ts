@@ -9,7 +9,7 @@ function keep<T extends object>(res: T): T {
 }
 
 export const authApi = {
-  options: () => apiClient.get<{ google: boolean }>("/auth/options"),
+  options: () => apiClient.get<{ google: boolean; email_codes?: boolean }>("/auth/options"),
   // The server emails a code first; the mock backend signs in straight away.
   register: (body: RegisterRequest) => apiClient.post<AuthResponse | PendingSignup>("/auth/register", body).then(keep),
   verify: (email: string, code: string) => apiClient.post<AuthResponse>("/auth/verify", { email, code }).then(keep),

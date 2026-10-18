@@ -85,7 +85,7 @@ function RegisterForm() {
     setTouched(true);
     if (!nameOk || !emailOk || !pwOk) return;
     const res = await register({ ...form, email: form.email.trim(), name: form.name.trim() });
-    if (res === "done") router.replace(next);
+    if (res === "done") router.replace(`/extension?next=${encodeURIComponent(next)}`); // new accounts see the install steps first
     if (res === "verify") setPending(form.email.trim().toLowerCase());
   };
 
