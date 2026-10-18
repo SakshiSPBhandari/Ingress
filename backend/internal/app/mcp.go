@@ -804,7 +804,10 @@ func (a *App) mcpHandler() gin.HandlerFunc {
 	h := mcp.NewStreamableHTTPHandler(func(r *http.Request) *mcp.Server {
 		u, _ := r.Context().Value(mcpUserKey{}).(*User)
 		return a.mcpServer(u)
-	}, &mcp.StreamableHTTPOptions{SessionTimeout: 2 * time.Hour})
+	}, &mcp.StreamableHTTPOptions{SessionTimeout: 2 * time.Hour,
+		// The host's proxy reaches us on a loopback address, and the SDK would then reject the public Host header.
+		// Every request is checked against an MCP token above, so the localhost-only guard is not needed.
+		DisableLocalhostProtection: true})
 	limiter := newRateLimiter(240, time.Minute)
 	var owners sync.Map // Mcp-Session-Id → user id
 	return func(c *gin.Context) {
