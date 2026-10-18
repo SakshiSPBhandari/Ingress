@@ -8,31 +8,33 @@ export function AuthShell({ children }: { children: ReactNode }) {
   return (
     <div className="grid min-h-dvh lg:grid-cols-[1fr_1.05fr]">
       <aside className="relative hidden overflow-hidden border-r border-line bg-hero-glow lg:block">
-        <div className="relative flex h-full flex-col justify-between p-10">
+        <div className="relative flex h-full flex-col p-10">
           <Logo href="/" />
-          <h1 className="max-w-md text-balance font-display text-[2.4rem] font-black leading-[1.15] tracking-[-0.02em] text-ink">
-            Research with many tabs open? Track them all on one <span className="rounded-2xl bg-brand-gradient px-2">canvas.</span>
-          </h1>
-          <div className="relative h-56">
-            <motion.div
-              initial={{ opacity: 0, y: 20, rotate: -2 }}
-              animate={{ opacity: 1, y: 0, rotate: -2 }}
-              transition={{ delay: 0.15, type: "spring", stiffness: 120, damping: 20 }}
-              className="absolute left-0 top-0 w-72 rounded-[24px] border border-line bg-white p-4 shadow-pop-lg"
-            >
-              <p className="text-xs font-semibold text-muted">Your goal</p>
-              <p className="mt-1 text-sm font-semibold text-ink">Pick a CRM for our 20-person sales team</p>
-              <p className="mt-3 text-xs text-muted">46 min on your goal · 4 min on other pages</p>
-            </motion.div>
-            <motion.div
-              initial={{ opacity: 0, y: 20, rotate: 4 }}
-              animate={{ opacity: 1, y: 0, rotate: 4 }}
-              transition={{ delay: 0.3, type: "spring", stiffness: 120, damping: 20 }}
-              className="absolute left-32 top-28 w-60 rounded-[24px] border border-line bg-white p-4 shadow-pop-lg"
-            >
-              <p className="text-sm font-bold text-ink">This page is not part of your goal</p>
-              <p className="mt-1 text-xs text-muted">Live cricket scores have nothing to do with choosing a CRM.</p>
-            </motion.div>
+          <div className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center">
+            <h1 className="text-balance font-display text-[2.4rem] font-black leading-[1.15] tracking-[-0.02em] text-ink">
+              Research with many tabs open? Track them all on one <span className="rounded-2xl bg-brand-gradient px-2">canvas.</span>
+            </h1>
+            <div className="relative mt-10 h-[15.5rem]">
+              <motion.div
+                initial={{ opacity: 0, y: 20, rotate: -2 }}
+                animate={{ opacity: 1, y: 0, rotate: -2 }}
+                transition={{ delay: 0.15, type: "spring", stiffness: 120, damping: 20 }}
+                className="absolute left-0 top-0 w-72 rounded-[24px] border border-line bg-white p-4 shadow-pop-lg"
+              >
+                <p className="text-xs font-semibold text-muted">Your goal</p>
+                <p className="mt-1 text-sm font-semibold text-ink">Learn the basics of machine learning</p>
+                <p className="mt-3 text-xs text-muted">40 min on your goal · 5 min on other pages</p>
+              </motion.div>
+              <motion.div
+                initial={{ opacity: 0, y: 20, rotate: 3 }}
+                animate={{ opacity: 1, y: 0, rotate: 3 }}
+                transition={{ delay: 0.3, type: "spring", stiffness: 120, damping: 20 }}
+                className="absolute left-36 top-[9.25rem] w-60 rounded-[24px] border border-line bg-white p-4 shadow-pop-lg"
+              >
+                <p className="text-sm font-bold text-ink">Not part of your goal</p>
+                <p className="mt-1 text-xs text-muted">A movie review is not related to machine learning.</p>
+              </motion.div>
+            </div>
           </div>
         </div>
       </aside>

@@ -1,13 +1,15 @@
 "use client";
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { SignIn, Sparkle } from "@phosphor-icons/react";
 import { AuthShell } from "@/features/auth/AuthShell";
+import { FormError, GOOGLE_ERRORS, GoogleSignIn } from "@/features/auth/AuthParts";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/primitives";
 import { useAuthStore } from "@/stores/auth";
 import { API_MODE } from "@/lib/api/config";
+import { detectExtension } from "@/lib/extension/bridge";
 import { safeNext } from "@/lib/utils/url";
 
 function LoginForm() {
@@ -17,36 +19,48 @@ function LoginForm() {
   const { login, status, error, bootstrap } = useAuthStore();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [touched, setTouched] = useState(false);
+  const submitting = useRef(false);
+  const googleError = GOOGLE_ERRORS[params.get("error") ?? ""] ?? null;
 
   useEffect(() => void bootstrap(), [bootstrap]);
   useEffect(() => {
-    if (status === "authenticated") router.replace(next);
+    // Already signed in when the page opened; a fresh sign-in is sent on by submit().
+    if (status === "authenticated" && !submitting.current) router.replace(next);
   }, [status, router, next]);
 
   const submit = async (e?: React.FormEvent, creds?: { email: string; password: string }) => {
     e?.preventDefault();
-    const ok = await login(creds ?? { email, password });
-    if (ok) router.replace(next);
+    setTouched(true);
+    const body = creds ?? { email: email.trim(), password };
+    if (!body.email || !body.password) return;
+    submitting.current = true;
+    const ok = await login(body);
+    submitting.current = ok;
+    if (!ok) return;
+    // Without the extension, show the install steps first.
+    const hasExtension = API_MODE !== "http" || (await detectExtension());
+    router.replace(hasExtension ? next : `/extension?next=${encodeURIComponent(next)}`);
   };
+  const missing = touched && (!email.trim() || !password) ? "Enter your email and password." : null;
 
   return (
     <>
       <h2 className="text-balance text-[1.875rem] font-extrabold leading-tight text-ink">Welcome back</h2>
       <p className="mt-2 text-sm text-muted">Sign in to open your research workspaces.</p>
-      <form onSubmit={submit} className="mt-8 space-y-4" noValidate>
+      <div className="mt-8">
+        <GoogleSignIn next={next} />
+      </div>
+      <form onSubmit={submit} className="space-y-4" noValidate>
         <div>
           <Label htmlFor="email">Email</Label>
-          <Input id="email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" aria-invalid={!!error} />
+          <Input id="email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@company.com" aria-invalid={!!error || (touched && !email.trim())} />
         </div>
         <div>
-          <Label htmlFor="password">Password</Label>
-          <Input id="password" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" aria-invalid={!!error} />
+          <Label htmlFor="password" hint={<Link href="/forgot" className="font-semibold text-purple-deep hover:underline">Forgot password?</Link>}>Password</Label>
+          <Input id="password" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} aria-invalid={!!error || (touched && !password)} />
         </div>
-        {error && (
-          <p role="alert" className="rounded-2xl bg-danger-soft px-4 py-2.5 text-sm font-semibold text-danger">
-            {error}
-          </p>
-        )}
+        <FormError message={error ?? missing ?? googleError} />
         <Button type="submit" variant="primary" size="lg" className="w-full" loading={status === "loading"}>
           <SignIn size={20} weight="bold" /> Sign in
         </Button>
