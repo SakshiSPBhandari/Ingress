@@ -28,6 +28,9 @@ type Config struct {
 	AgentKey        string
 	// Email codes (sign-up and password reset). Without SMTP_USER, codes are only written to the log (development).
 	SMTPHost, SMTPPort, SMTPUser, SMTPPassword, MailFrom string
+	// EMAIL_VERIFICATION=false creates accounts without an email code and turns off password reset by email
+	// (for hosts that block outgoing email). Default true.
+	EmailVerification bool
 	// Google sign-in; turned off when GOOGLE_CLIENT_ID is empty.
 	GoogleClientID, GoogleClientSecret string
 	// Development only: email codes are returned in the response instead of emailed (automated tests).
@@ -64,8 +67,9 @@ func Load() (Config, error) {
 	if c.SMTPUser != "" && c.SMTPPassword == "" {
 		errs = append(errs, errors.New("SMTP_PASSWORD is required when SMTP_USER is set"))
 	}
-	if c.SMTPUser == "" && c.Env == "production" {
-		errs = append(errs, errors.New("SMTP_USER and SMTP_PASSWORD are required in production (email codes)"))
+	c.EmailVerification = boolVar("EMAIL_VERIFICATION", true, &errs)
+	if c.SMTPUser == "" && c.EmailVerification && c.Env == "production" {
+		errs = append(errs, errors.New("SMTP_USER and SMTP_PASSWORD are required in production (email codes), or set EMAIL_VERIFICATION=false"))
 	}
 	if (c.GoogleClientID == "") != (c.GoogleClientSecret == "") {
 		errs = append(errs, errors.New("GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET must be set together"))

@@ -243,6 +243,15 @@ func (a *App) register(c *gin.Context) error {
 		return err
 	}
 	h := string(hash)
+	if !a.cfg.EmailVerification {
+		// No email code on this server: the checked details create the account straight away.
+		u, err := a.createUser(c, email, name, &h, nil)
+		if err != nil {
+			return err
+		}
+		slog.Info("[AUTH] account created", "user_id", u.ID, "via", "email (no code)")
+		return a.signedIn(c, 201, u)
+	}
 	devCode, err := a.issueCode(c, email, "signup", name, &h)
 	if err != nil {
 		return err
@@ -304,6 +313,9 @@ func (a *App) forgotPassword(c *gin.Context) error {
 	var b struct{ Email string }
 	if err := bind(c, &b); err != nil {
 		return err
+	}
+	if !a.cfg.EmailVerification {
+		return httpx.Validation("Password reset by email is not available. Please sign in with Google instead.")
 	}
 	if !a.limiter.allow("forgot:" + c.ClientIP()) {
 		return httpx.RateLimited("Too many attempts. Please try again in a minute.")

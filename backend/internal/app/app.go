@@ -73,7 +73,9 @@ func (a *App) Routes(e *gin.Engine) {
 	r.GET("/healthz", func(c *gin.Context) { c.JSON(200, gin.H{"ok": true}) })
 	r.GET("/readyz", a.readyz)
 
-	r.GET("/auth/options", func(c *gin.Context) { c.JSON(200, gin.H{"google": a.cfg.GoogleClientID != ""}) })
+	r.GET("/auth/options", func(c *gin.Context) {
+		c.JSON(200, gin.H{"google": a.cfg.GoogleClientID != "", "email_codes": a.cfg.EmailVerification})
+	})
 	r.POST("/auth/register", httpx.H(a.register))
 	r.POST("/auth/verify", httpx.H(a.verifyEmail))
 	r.POST("/auth/resend", httpx.H(a.resendCode))

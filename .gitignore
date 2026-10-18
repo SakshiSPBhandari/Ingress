@@ -41,3 +41,7 @@ api/bin/
 
 # Demo assets and recordings
 demo/
+
+# demo recording: browser profiles and output (local only)
+demo/v2/profile-*/
+demo/v2/out/
