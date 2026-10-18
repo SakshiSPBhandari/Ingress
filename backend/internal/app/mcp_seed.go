@@ -26,9 +26,9 @@ var htmlTag = regexp.MustCompile(`<[^>]+>`)
 func (a *App) seedWikipedia(u *User, wsID, topic string, session *Session) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
-	results, err := wikipediaSearch(ctx, topic, 4)
-	if err != nil {
-		slog.Warn("[MCP] wikipedia seed failed", "topic", topic, "err", err)
+	results := a.seedArticles(ctx, topic)
+	if len(results) == 0 {
+		slog.Warn("[MCP] wikipedia seed found nothing", "topic", topic)
 		return
 	}
 	added := 0
@@ -46,6 +46,31 @@ func (a *App) seedWikipedia(u *User, wsID, topic string, session *Session) {
 		time.Sleep(400 * time.Millisecond) // let the nodes pop in one by one on the canvas
 	}
 	slog.Info("[MCP] wikipedia sources seeded", "workspace_id", wsID, "topic", topic, "added", added)
+}
+
+// seedArticles finds background articles for a topic. A whole sentence ("Best CRM for a 20-person sales team in India")
+// matches unrelated pages on Wikipedia, so the AI first names fitting encyclopedia articles and each one is looked up.
+func (a *App) seedArticles(ctx context.Context, topic string) []wikiResult {
+	var plan struct {
+		Titles []string `json:"titles"`
+	}
+	queries := []string{topic}
+	if a.agent.post(ctx, "/v1/background", gin.H{"topic": topic}, &plan) == nil && len(plan.Titles) > 0 {
+		queries = plan.Titles
+	}
+	out, seen := []wikiResult{}, map[string]bool{}
+	for _, q := range queries {
+		if len(out) == 4 {
+			break
+		}
+		results, err := wikipediaSearch(ctx, q, 1)
+		if err != nil || len(results) == 0 || seen[results[0].url] {
+			continue
+		}
+		seen[results[0].url] = true
+		out = append(out, results[0])
+	}
+	return out
 }
 
 type wikiResult struct{ title, url, snippet string }

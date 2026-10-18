@@ -831,7 +831,8 @@ func (p *Pipeline) checkConflicts(ctx context.Context, wsID, nodeID, pageID stri
 		if r.Index < 0 || r.Index >= len(pairs) || r.Confidence < 0.6 {
 			continue
 		}
-		if r.Label != "contradict" && r.Label != "partially_contradict" && r.Label != "different_context" {
+		// Only real disagreements reach Conflict Radar; "different context" pairs do not disagree.
+		if r.Label != "contradict" && r.Label != "partially_contradict" {
 			continue
 		}
 		x := pairs[r.Index]
@@ -975,6 +976,7 @@ func (a *App) methodology(c *gin.Context) error {
 /* ---------------------------------------------------------------- report builder */
 
 var citeRe = regexp.MustCompile(`\[(\d+)\]`)
+var multiCiteRe = regexp.MustCompile(`\[\d+(?:\s*,\s*\d+)+\]`)
 
 // maxReportSources is how many pages the AI reads when it writes the report: the ones the person spent most time on.
 const maxReportSources = 12
@@ -1005,17 +1007,32 @@ func (a *App) buildReport(ctx context.Context, s *Session) {
 			refByNode[*r.NodeID] = r.RefNumber
 		}
 	}
-	// The pages the person spent most time on, with what each page says.
-	sources := []gin.H{}
+	// The pages the person spent most time on first, then the other sources of the session, with what each page says.
+	type pick struct {
+		ref     Reference
+		minutes int64
+	}
+	picks, seen := []pick{}, map[string]bool{}
 	for _, p := range stats["time_per_page"].([]gin.H) {
-		id, _ := p["page_id"].(*string)
-		if id == nil || len(sources) == maxReportSources {
-			continue
+		if id, _ := p["page_id"].(*string); id != nil {
+			if r, ok := byPage[*id]; ok && !seen[*id] {
+				seen[*id] = true
+				picks = append(picks, pick{r, p["ms"].(int64) / 60000})
+			}
 		}
-		r, ok := byPage[*id]
-		if !ok {
-			continue
+	}
+	for _, r := range refs {
+		if !seen[r.PageID] {
+			seen[r.PageID] = true
+			picks = append(picks, pick{r, 0})
 		}
+	}
+	sources := []gin.H{}
+	for _, pk := range picks {
+		if len(sources) == maxReportSources {
+			break
+		}
+		r := pk.ref
 		var summary string
 		_ = a.db.QueryRow(ctx, `SELECT coalesce(summary,'') FROM pages WHERE id=$1`, r.PageID).Scan(&summary)
 		points := []string{}
@@ -1029,7 +1046,7 @@ func (a *App) buildReport(ctx context.Context, s *Session) {
 			rows.Close()
 		}
 		sources = append(sources, gin.H{"ref": r.RefNumber, "title": truncateRunes(r.Title, 120), "site": r.Domain,
-			"minutes": p["ms"].(int64) / 60000, "summary": truncateRunes(summary, 500), "key_points": points})
+			"minutes": pk.minutes, "summary": truncateRunes(summary, 500), "key_points": points})
 	}
 	// Findings the person wrote themselves, with the pages that support them.
 	findings := []gin.H{}
@@ -1067,15 +1084,21 @@ func (a *App) buildReport(ctx context.Context, s *Session) {
 			Refs []int  `json:"refs"`
 		} `json:"key_points"`
 	}
-	err = a.agent.post(ctx, "/v1/report", gin.H{"workspace_title": wsTitle, "goal": goalText(s), "sources": sources, "own_findings": findings,
-		"active_minutes": stats["active_ms"].(int64) / 60000, "total_minutes": stats["total_duration_ms"].(int64) / 60000,
-		"goal_minutes_on": s.GoalOnMs / 60000, "goal_minutes_off": s.GoalOffMs / 60000}, &out)
+	input := gin.H{"workspace_title": wsTitle, "goal": goalText(s), "sources": sources, "own_findings": findings,
+		"active_minutes": stats["active_ms"].(int64) / 60000, "total_minutes": stats["total_duration_ms"].(int64) / 60000}
+	if s.GoalOnMs+s.GoalOffMs > 0 { // say nothing about goal time when none was measured
+		input["goal_minutes_on"], input["goal_minutes_off"] = s.GoalOnMs/60000, s.GoalOffMs/60000
+	}
+	err = a.agent.post(ctx, "/v1/report", input, &out)
 	if err != nil {
 		fail(err)
 		return
 	}
-	// Remove citations that do not point to a real reference.
-	summary := citeRe.ReplaceAllStringFunc(out.Summary, func(m string) string {
+	// "[1, 2]" becomes "[1][2]" so each citation links to its source; citations to unknown references are removed.
+	summary := multiCiteRe.ReplaceAllStringFunc(out.Summary, func(m string) string {
+		return "[" + strings.Join(strings.FieldsFunc(m[1:len(m)-1], func(r rune) bool { return r == ',' || r == ' ' }), "][") + "]"
+	})
+	summary = citeRe.ReplaceAllStringFunc(summary, func(m string) string {
 		n, _ := strconv.Atoi(m[1 : len(m)-1])
 		if valid[n] {
 			return m

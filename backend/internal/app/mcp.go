@@ -289,6 +289,7 @@ func (a *App) mcpServer(u *User) *mcp.Server {
 			WorkspaceTitle string `json:"workspace_title,omitempty" jsonschema:"optional short workspace name; defaults to the topic"`
 			WorkspaceID    string `json:"workspace_id,omitempty" jsonschema:"optional: research inside this existing workspace instead of creating one"`
 			SeedSources    *bool  `json:"seed_sources,omitempty" jsonschema:"optional, default true: the server also adds a few Wikipedia background sources"`
+			Goal           string `json:"goal,omitempty" jsonschema:"optional: what the user wants to finish, in their words, e.g. 'Pick a CRM for a 20-person sales team'. Shown in the app and used in the session report"`
 		}) (*mcp.CallToolResult, out, error) {
 			topic := truncateRunes(strings.TrimSpace(in.Topic), 300)
 			if topic == "" {
@@ -316,6 +317,11 @@ func (a *App) mcpServer(u *User) *mcp.Server {
 				return nil, out{}, err
 			}
 			se := agentSession(ctx, wsID, client)
+			if goal := strings.TrimSpace(in.Goal); goal != "" && se != nil {
+				if err := a.setGoal(ctx, se, goal, &u.ID); err != nil {
+					return nil, out{}, errors.New("could not save the goal")
+				}
+			}
 			url := a.appURL() + "/w/" + wsID
 			// Seed background sources from Wikipedia so the map fills even when the assistant's own web search is
 			// rate-limited (common on free tiers). Only for a workspace without sources yet; runs after we answer.
@@ -330,8 +336,10 @@ func (a *App) mcpServer(u *User) *mcp.Server {
 			}
 			return ok(gin.H{"workspace_id": wsID, "workspace_url": url, "created": isNew, "question_node_id": qid, "background_sources": seeding,
 				"next": "Search the web now. For each useful page call add_source (url, title, content = key text, question = the search query). " +
-					"Then add_finding (statement, details, source_node_ids). If your web search fails, call get_graph_outline: the server adds " +
-					"Wikipedia background sources in a few seconds, and you can cite their ids in add_finding. workspace_id is optional from here on. " +
+					"Then add_finding (statement, details, source_node_ids). If your web search fails or is rate-limited, do not retry it: " +
+					"call add_source with the official website of each option you already know (for example a product's pricing or features page); " +
+					"the server reads each page itself. The server also adds Wikipedia background sources in a few seconds (see get_graph_outline), " +
+					"and you can cite their ids in add_finding. workspace_id is optional from here on. " +
 					"Tell the user they can watch live at " + url})
 		})
 
@@ -848,19 +856,17 @@ type mcpAuthHit struct {
 	exp time.Time
 }
 
-const mcpInstructions = "Research Map turns research into a live visual graph in the user's browser. Whenever the user asks you to research " +
-	"anything, use these tools while you work (not only at the end): 1) start_research(topic) FIRST: it creates the workspace and opens it live " +
-	"for the user; 2) search the web with your own search tool; 3) add_source for EVERY useful page right after you read it (url, title, " +
-	"content = the relevant text, question = the query that found it); 4) add_finding for each conclusion, citing the source node ids; " +
-	"5) optionally link_nodes to explain relationships. workspace_id is optional after start_research. Everything lands in the workspace's " +
-	"AI Agent branch for the user to review. This server does not search the web itself."
+const mcpInstructions = "Research Map turns research into a live visual canvas in the user's browser. Whenever the user asks you to research " +
+	"anything, use these tools while you work (not only at the end): 1) start_research(topic, goal) FIRST: it creates the workspace, saves the " +
+	"user's goal if they gave one, and opens it live for the user; 2) search the web with your own search tool; 3) add_source for EVERY useful " +
+	"page right after you read it (url, title, content = the relevant text, question = the query that found it); 4) add_finding for each " +
+	"conclusion, citing the source node ids; 5) optionally link_nodes to explain relationships. If your web search fails or is rate-limited, " +
+	"do not keep retrying it: add the official websites of options you already know with add_source; the server reads each page itself. " +
+	"workspace_id is optional after start_research. Everything appears on the user's canvas right away. This server does not search the web itself."
 
 // appURL is the web app origin used in links handed back to AI assistants.
 func (a *App) appURL() string {
-	if len(a.cfg.WebOrigins) > 0 {
-		return strings.TrimRight(a.cfg.WebOrigins[0], "/")
-	}
-	return "http://localhost:3000"
+	return strings.TrimRight(a.cfg.WebOrigins[0], "/") // WEB_ORIGINS always has at least one entry (see config)
 }
 
 // mcpStartWorkspace reuses the user's workspace with this exact title (so a retrying assistant does not create duplicates)

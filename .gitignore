@@ -36,3 +36,10 @@ api/bin/
 
 # IDE configs and cache
 .gemini/
+# Playwright CLI output (may contain credentials)
+.playwright-cli/
+
+# Demo video: large recordings and the local ffmpeg copy stay out of Git
+demo/tools/node_modules/
+demo/video/
+demo/research-map-demo.mp4

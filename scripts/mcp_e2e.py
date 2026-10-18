@@ -144,7 +144,8 @@ async def main() -> int:
                                                "source_node_ids": [s1["node_id"], s2["node_id"]]})
         check(not err and len(f["edge_ids"]) == 2, "add_finding creates a Finding with 2 'supports' edges", str(f))
         err, bad = await ai.call("add_finding", {"workspace_id": ws_id, "statement": "x", "source_node_ids": ["00000000-0000-0000-0000-000000000000"]})
-        check(err and "not in this workspace" in bad, "add_finding rejects unknown source ids")
+        check(not err and bad.get("ignored_source_ids") == ["00000000-0000-0000-0000-000000000000"] and not bad["edge_ids"],
+              "add_finding reports unknown source ids and links none")
         err, note = await ai.call("add_note", {"node_id": f["node_id"], "text": "Needs a clinical-trial source."})
         check(not err and note.get("annotation_id"), "add_note on a node")
         err, wnote = await ai.call("add_note", {"workspace_id": ws_id, "text": "Next: look for regulation (FDA) sources."})
