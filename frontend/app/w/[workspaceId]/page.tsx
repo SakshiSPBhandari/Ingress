@@ -1,13 +1,10 @@
-"use client";
-import { useParams } from "next/navigation";
-import { AuthGate } from "@/components/shell/AuthGate";
-import { WorkspaceScreen } from "@/features/workspace/WorkspaceScreen";
+import { WorkspaceRoute } from "./WorkspaceRoute";
+
+// Static hosting builds one page that serves every /w/<id> address; the real ID is read in the browser.
+export function generateStaticParams() {
+  return [{ workspaceId: "_" }];
+}
 
 export default function WorkspacePage() {
-  const { workspaceId } = useParams<{ workspaceId: string }>();
-  return (
-    <AuthGate>
-      <WorkspaceScreen key={workspaceId} workspaceId={workspaceId} />
-    </AuthGate>
-  );
+  return <WorkspaceRoute />;
 }

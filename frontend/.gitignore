@@ -40,3 +40,10 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# example settings files are safe to share
+!.env.example
+!.env.firebase.example
+
+# Firebase CLI cache
+.firebase/
