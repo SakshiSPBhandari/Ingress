@@ -23,7 +23,7 @@ function realSocket(workspaceId: string, h: Handlers): WorkspaceSocket {
   let closed = false;
   let attempt = 0;
   let timer: ReturnType<typeof setTimeout> | undefined;
-  // NEXT_PUBLIC_WS_URL, else the API address (another host, e.g. Render), else this page's host.
+  // NEXT_PUBLIC_WS_URL, else the API address (another host), else this page's host.
   const base =
     WS_URL ||
     (/^https?:\/\//.test(API_BASE_URL)

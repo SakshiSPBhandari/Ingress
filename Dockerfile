@@ -1,5 +1,5 @@
 # Backend (Go) and AI service (Python) in one container, for free hosting with one always-on service.
-# The AI service listens only on 127.0.0.1:8000; the backend listens on $PORT (set by the host, for example Render).
+# The AI service listens only on 127.0.0.1:8000; the backend listens on $PORT (set by the container host, for example Cloud Run).
 
 FROM golang:1.26 AS go-build
 WORKDIR /src

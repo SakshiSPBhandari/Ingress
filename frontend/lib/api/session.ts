@@ -1,6 +1,6 @@
 /**
  * The session token from sign-in. The web app may be hosted on another address than the API (Firebase Hosting and
- * Render), where browsers block the API's cookie, so the token is kept here and sent as "Authorization: Bearer".
+ * a separate API host), where browsers block the API's cookie, so the token is kept here and sent as "Authorization: Bearer".
  */
 const KEY = "rm_session";
 

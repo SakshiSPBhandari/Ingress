@@ -32,7 +32,7 @@ type Config struct {
 	GoogleClientID, GoogleClientSecret string
 	// Development only: email codes are returned in the response instead of emailed (automated tests).
 	DevAuthCodes bool
-	// Public address of this backend (for example https://research-map-api.onrender.com) when the web app is
+	// Public address of this backend (for example https://api.example.com) when the web app is
 	// hosted on another address. Used for the Google sign-in return address. Empty: the web app forwards /api here.
 	PublicAPIURL string
 }

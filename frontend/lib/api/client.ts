@@ -29,7 +29,7 @@ function buildQuery(query?: Query): string {
 const httpTransport: Transport = {
   async request<T>(method: HttpMethod, path: string, opts: RequestOptions = {}): Promise<T> {
     let res: Response;
-    // Same address: the httpOnly cookie signs the request in. Another address (Firebase + Render): the Bearer token does.
+    // Same address: the httpOnly cookie signs the request in. Another address (Firebase Hosting + API host): the Bearer token does.
     const headers: Record<string, string> = {};
     if (opts.body !== undefined) headers["Content-Type"] = "application/json";
     const token = getSessionToken();
