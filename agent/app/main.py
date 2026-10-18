@@ -33,7 +33,7 @@ P = {
    '"is_research_reason":str,"page_type":one of article|documentation|research_paper|video|forum_discussion|news|product_page|tutorial|reference|dataset|other,'
    '"main_concept":str (2-5 words),'
    '"summary":str (3 to 5 sentences, about 60 to 90 words, in simple formal English: what the page is about, the main points it explains, and who it helps. '
-   'Explain any hard word in plain words. No metaphors, no marketing words, no vague phrases like "this page discusses various things"),'
+   'Explain any hard word in plain words. No metaphors, no emojis, no marketing words, no vague phrases like "this page discusses various things"),'
    '"topics":[2-5 short topic names],'
    '"claims":[up to 6 key points {"text":one complete plain sentence of 15 to 30 words that explains the point in your own words, with the fact included, '
    'so a beginner understands it without reading the page,"quote":exact sentence copied word for word from the page}],"questions_answered":[up to 3]}',
@@ -49,14 +49,19 @@ P = {
    'Return JSON {"checklist":[{"source":"a"|"b"|"both","item":short question}]} with 4-6 items.',
  "radar": 'Suggest 3 web searches to research this under-covered topic. Return JSON {"suggested_searches":[3 short queries]}',
  "report": 'Write a report of one research session for the person who did it. Use simple formal English: short clear sentences, no metaphors, '
-   'no jokes, no vague words, and explain any hard word. Use only the data given: the goal, the pages with the minutes spent and what each page says, and the '
-   'own findings of the person. Cite sources only as [n] using the given ref numbers. '
+   'no jokes, no emojis, no vague words, and explain any hard word. Use only the data given: the goal, the pages with the minutes spent and what each page says, and the '
+   'own findings of the person. Cite each source on its own as [n] using the given ref numbers, for example [1][2], never [1, 2]. '
+   'Mention time on the goal only when goal_minutes_on is given; never guess it. '
    'Return JSON {"summary":"2 or 3 short paragraphs separated by a blank line. Paragraph 1: what the session was about and how long it took'
    ' (if there is a goal, say how much of the time was on the goal). Paragraph 2: what the main pages taught, in order of the time spent, with [n] citations. '
    'Paragraph 3: what is still missing or what to study next, based only on the goal and the pages read.",'
    '"key_points":[4 to 7 items {"text":one complete sentence of 15 to 35 words that states one thing the person learned, with the fact included,"refs":[n]}]}.',
+ "background": 'Name up to 4 existing English Wikipedia articles that give useful background for this research topic. '
+   'Use exact article titles of general subjects (for example "Customer relationship management", "Software as a service"), '
+   'never lists, people, places or news. Return JSON {"titles":[...]}',
  "goal_plan": 'The user wrote a goal for their research session. The workspace name tells you their subject area. '
-   'First write the goal in full plain words, expanding short forms (for example "cn" in a "devops" workspace means computer networks). '
+   'First write the goal in full plain words. Keep every word that is already clear exactly as the user wrote it (DevOps, Kubernetes, React stay as they are). '
+   'Only expand a short form that is unclear, using the workspace name to choose the meaning (for example "cn" in a "networking" workspace means computer networks). '
    'If the goal could still mean clearly different things, set unclear to true. '
    'Then list the 3-6 key topics they must study to reach the goal, in a sensible order, with short names (1-4 plain words each). '
    'Return JSON {"meaning":str,"unclear":bool,"topics":[...]}',
@@ -117,7 +122,7 @@ def llm(task: str, user: str, schema: type[BaseModel], max_tokens=900) -> BaseMo
 
 
 TASK_LABEL = {"understand": "Agent 1", "place": "Agent 2", "conflicts": "Conflict check", "report": "Session report",
-              "radar": "Research radar", "methodology": "Methodology checklist", "goal_plan": "Goal plan", "goal_check": "Goal check"}
+              "radar": "Research radar", "methodology": "Methodology checklist", "goal_plan": "Goal plan", "goal_check": "Goal check", "background": "Background sources"}
 
 
 _emb, _elock = None, threading.Lock()
@@ -336,6 +341,21 @@ def report(inp: dict):
     return llm("report", json.dumps(inp, default=str)[:14000], Report, 1800).model_dump()
 
 
+class Background(BaseModel):
+    titles: list[str] = []
+
+
+@app.post("/v1/background", dependencies=[Depends(auth)])
+def background(inp: dict):
+    """Wikipedia article titles that explain the subject of a research topic (used to seed sources for AI assistants)."""
+    topic = str(inp.get("topic") or "")[:300]
+    try:
+        titles = llm("background", f"<topic>\n{topic}\n</topic>", Background, 200).titles
+    except HTTPException:
+        titles = []
+    return {"titles": [t.strip()[:120] for t in titles if t.strip()][:4]}
+
+
 class GoalPlan(BaseModel):
     meaning: str = ""
     unclear: bool = False
@@ -441,5 +461,5 @@ def cluster(inp: dict):
 def health():
     st = ROUTER.status()
     return {"ok": True, "ai_available": any(p["keys_configured"] for p in st.values()),
-            "providers": st, "models": {t: m for t, m in ROUTER.models.items()},
+            "providers": st, "models": {t: {p: ms[0] for p, ms in m.items()} for t, m in ROUTER.models.items()},  # main model per task
             "routing": {t: ROUTER.order(t) for t in ROUTER.models}}

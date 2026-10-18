@@ -8,6 +8,8 @@ chrome.storage.local.get(["token", "tracking", "paused", "workspaceId", "apiBase
   if (s.tracking && s.goal) { $("goaltext").textContent = s.goal; $("goal").hidden = false; }
 });
 $("save").onclick = async () => {
-  await chrome.storage.local.set({ token: $("token").value.trim(), apiBase: $("api").value.trim() || "http://localhost:8080/api/v1" });
+  const apiBase = $("api").value.trim().replace(/\/+$/, "");
+  if (!apiBase) { $("status").textContent = "Enter the API address"; return; }
+  await chrome.storage.local.set({ token: $("token").value.trim(), apiBase });
   $("status").textContent = "Saved";
 };

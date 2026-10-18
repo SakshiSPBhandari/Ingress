@@ -1,5 +1,4 @@
 // Research Map extension (MV3). Captures only while the user tracks a workspace. No AI, no database here.
-const DEFAULT_API = "http://localhost:8080/api/v1";
 const SEARCH_ENGINES = [
   { host: /(^|\.)google\.[a-z.]+$/, path: /^\/search/, param: "q", name: "google" },
   { host: /(^|\.)bing\.com$/, path: /^\/search/, param: "q", name: "bing" },
@@ -19,8 +18,8 @@ const sset = (o) => chrome.storage.session.set(o);
 
 async function api(method, path, body) {
   const { token, apiBase } = await get(["token", "apiBase"]);
-  if (!token) throw new Error("not connected");
-  const res = await fetch((apiBase || DEFAULT_API) + path, {
+  if (!token || !apiBase) throw new Error("not connected");
+  const res = await fetch(apiBase + path, {
     method, headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
     body: body ? JSON.stringify(body) : undefined,
   });
@@ -84,14 +83,14 @@ function searchOf(url) {
 }
 
 async function state() {
-  return get(["tracking", "paused", "workspaceId", "sessionId", "blocklist", "captured", "goal"]);
+  return get(["tracking", "paused", "workspaceId", "sessionId", "blocklist", "captured", "goal", "webOrigin"]);
 }
 async function allowed(url, tab) {
   const s = await state();
   if (tab?.incognito) return false; // never track incognito (manifest also sets incognito: not_allowed)
   if (!s.tracking || s.paused || !s.workspaceId || !isHttp(url)) return false;
+  if (s.webOrigin && new URL(url).origin === s.webOrigin) return false; // never capture our own app
   const host = new URL(url).hostname.replace(/^www\./, "");
-  if (host === "localhost" || host === "127.0.0.1") return false; // never capture our own app
   return !(s.blocklist || []).some((b) => host === b || host.endsWith("." + b));
 }
 
@@ -121,7 +120,8 @@ async function handleExternal(msg, sender) {
       setTimeout(() => chrome.runtime.reload(), 100);
       return { ok: true };
     case "CONNECT_TOKEN":
-      await set({ token: msg.token, apiBase: msg.api_base || DEFAULT_API, webOrigin: sender.origin });
+      // The web app sends its API address; without one, the API is reached through the app itself.
+      await set({ token: msg.token, apiBase: msg.api_base || sender.origin + "/api/v1", webOrigin: sender.origin });
       await syncState();
       return { ok: true };
     case "START_TRACKING": {
@@ -186,11 +186,13 @@ async function handleExternal(msg, sender) {
     }
     case "ENABLE_INTERACTIVE_EMBED": {
       // Remove frame-blocking headers ONLY for iframes that our web app opens (session rule, gone when Chrome closes).
+      const { webOrigin } = await get("webOrigin");
+      if (!webOrigin) return { ok: false, error: "not connected" };
       await chrome.declarativeNetRequest.updateSessionRules({
         removeRuleIds: [1],
         addRules: [{ id: 1, priority: 1,
           action: { type: "modifyHeaders", responseHeaders: [{ header: "x-frame-options", operation: "remove" }, { header: "content-security-policy", operation: "remove" }] },
-          condition: { resourceTypes: ["sub_frame"], initiatorDomains: ["localhost", "127.0.0.1"] } }],
+          condition: { resourceTypes: ["sub_frame"], initiatorDomains: [new URL(webOrigin).hostname] } }],
       });
       return { ok: true };
     }

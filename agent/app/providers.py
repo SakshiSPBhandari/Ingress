@@ -37,6 +37,10 @@ class ProviderError(Exception):
     pass
 
 
+class ModelBusy(ProviderError):
+    """The model itself is overloaded or too slow: another key will not help, so the next model is tried."""
+
+
 class AllProvidersFailed(Exception):
     def __init__(self, rate_limited: bool, retry_after: float, detail: str):
         super().__init__(detail)
@@ -84,6 +88,9 @@ class KeyPool:
                     self.cooldown_until[i] = time.time() + max(5.0, e.retry_after)
                 log.warning("[AI] %s key#%d rate limited, cooling %.0fs -> next key", self.name, i + 1, e.retry_after)
                 last = "rate limited"
+            except (ModelBusy, httpx.TimeoutException) as e:
+                log.warning("[AI] %s %s busy (%s) -> next model", self.name, model, type(e).__name__)
+                raise ModelBusy(f"{self.name}: {model} busy")
             except InvalidKey:
                 with self._lock:
                     self.cooldown_until[i] = time.time() + 600
@@ -113,11 +120,13 @@ def _classify(res: httpx.Response) -> None:
         raise InvalidKey()
     if res.status_code == 400 and "API_KEY_INVALID" in res.text:
         raise InvalidKey()
+    if res.status_code in (500, 502, 503, 504):
+        raise ModelBusy(f"http {res.status_code}")
     if res.status_code >= 400:
         raise ProviderError(f"http {res.status_code}")
 
 
-TIMEOUT = float(os.environ.get("AI_TIMEOUT_SECONDS", "45"))
+TIMEOUT = float(os.environ.get("AI_TIMEOUT_SECONDS", "25"))
 
 
 def gemini_call(key: str, model: str, system: str, user: str, max_tokens: int) -> str:
@@ -168,7 +177,7 @@ def load_keys(prefix: str) -> list[str]:
 class Router:
     def __init__(self, gemini: KeyPool, groq: KeyPool, models: dict[str, dict[str, str]]):
         self.pools = {"gemini": gemini, "groq": groq}
-        self.models = models  # task -> {"gemini": model, "groq": model}
+        self.models = models  # task -> {"gemini": [models in order], "groq": [models]}
 
     def order(self, task: str) -> list[str]:
         return ["gemini", "groq"]
@@ -177,27 +186,27 @@ class Router:
         """Returns (validated_object, provider, model). Invalid JSON gets one more attempt, then the next provider."""
         rate_limited_all, retry_after, errors = True, 60.0, []
         for prov in self.order(task):
-            pool, model = self.pools[prov], self.models[task][prov]
-            if not pool.keys or not model:
-                continue
-            for _ in range(2):
-                try:
-                    raw = pool.complete(model, system, user, max_tokens)
-                except RateLimited as e:
-                    retry_after = min(retry_after, e.retry_after)
-                    errors.append(f"{prov}: rate limited")
-                    break
-                except ProviderError as e:
-                    rate_limited_all = False
-                    errors.append(str(e))
-                    break
-                try:
-                    return validate(json.loads(_strip_fences(raw))), prov, model
-                except Exception:
-                    rate_limited_all = False
-                    errors.append(f"{prov}: invalid model output")
-                    log.warning("[AI] %s returned invalid JSON for %s, retrying", prov, task)
-            log.warning("[AI] %s failed for %s -> fallback provider", prov, task)
+            pool = self.pools[prov]
+            # A busy or failing model (for example Gemini "high demand") moves on to the next model, then the next provider.
+            for model in [m for m in self.models[task][prov] if m] if pool.keys else []:
+                for _ in range(2):
+                    try:
+                        raw = pool.complete(model, system, user, max_tokens)
+                    except RateLimited as e:
+                        retry_after = min(retry_after, e.retry_after)
+                        errors.append(f"{prov}: rate limited")
+                        break
+                    except ProviderError as e:
+                        rate_limited_all = False
+                        errors.append(str(e))
+                        break
+                    try:
+                        return validate(json.loads(_strip_fences(raw))), prov, model
+                    except Exception:
+                        rate_limited_all = False
+                        errors.append(f"{prov}: invalid model output")
+                        log.warning("[AI] %s returned invalid JSON for %s, retrying", prov, task)
+                log.warning("[AI] %s %s failed for %s -> next model", prov, model, task)
         if not errors:
             raise AllProvidersFailed(False, 0, "no AI provider configured")
         raise AllProvidersFailed(rate_limited_all, retry_after, "; ".join(errors))
@@ -211,15 +220,18 @@ def build_router() -> Router:
     g_fast = os.environ.get("GEMINI_FAST_MODEL", "gemini-flash-lite-latest")
     q_heavy = os.environ.get("GROQ_FALLBACK_MODEL", "openai/gpt-oss-120b")
     q_light = os.environ.get("GROQ_MODEL", "openai/gpt-oss-20b")
+    # Gemini first (the main model, then the lighter one when it is busy); Groq only as a last backup.
+    full, fast = [g_default, g_fast], [g_fast, g_default]
     models = {
-        "understand": {"gemini": os.environ.get("AGENT1_MODEL", g_default), "groq": q_light},
-        "place": {"gemini": os.environ.get("AGENT2_MODEL", g_default), "groq": q_heavy},
-        "conflicts": {"gemini": os.environ.get("CONFLICT_MODEL", g_default), "groq": q_heavy},
-        "report": {"gemini": os.environ.get("REPORT_MODEL", g_default), "groq": q_heavy},
-        "radar": {"gemini": g_fast, "groq": q_light},
-        "methodology": {"gemini": g_fast, "groq": q_light},
-        "goal_plan": {"gemini": g_fast, "groq": q_light},
-        "goal_check": {"gemini": g_fast, "groq": q_heavy},  # small Groq models judged related pages wrongly
+        "understand": {"gemini": fast, "groq": [q_light]},  # runs for every page: the fast model keeps the canvas quick
+        "place": {"gemini": fast, "groq": [q_heavy]},
+        "conflicts": {"gemini": full, "groq": [q_heavy]},
+        "report": {"gemini": full, "groq": [q_heavy]},
+        "radar": {"gemini": fast, "groq": [q_light]},
+        "methodology": {"gemini": fast, "groq": [q_light]},
+        "goal_plan": {"gemini": fast, "groq": [q_light]},
+        "background": {"gemini": fast, "groq": [q_light]},
+        "goal_check": {"gemini": fast, "groq": [q_heavy]},  # small Groq models judged related pages wrongly
     }
     return Router(KeyPool("gemini", load_keys("GEMINI_API_KEY"), gemini_call),
                   KeyPool("groq", load_keys("GROQ_API_KEY"), groq_call), models)
