@@ -34,8 +34,15 @@ def check(cond: bool, name: str, detail: str = "") -> bool:
 
 def new_user(label: str) -> httpx.Client:
     c = httpx.Client(timeout=30)
-    r = c.post(API + "/auth/register", json={"name": label, "email": f"mcp-e2e-{random.randint(1, 10**9)}@test.local", "password": "mcp-e2e-pass-1234"})
+    # Needs the backend started with DEV_AUTH_CODES=true (development only): the sign-up code comes back in the response.
+    email = f"mcp-e2e-{random.randint(1, 10**9)}@example.com"
+    r = c.post(API + "/auth/register", json={"name": "Test " + label.capitalize(), "email": email, "password": "Quiet#Harbor2026"})
     r.raise_for_status()
+    body = r.json()
+    if body.get("verification_required"):
+        if "dev_code" not in body:
+            sys.exit("Start the backend with DEV_AUTH_CODES=true to run this test.")
+        c.post(API + "/auth/verify", json={"email": email, "code": body["dev_code"]}).raise_for_status()
     return c
 
 

@@ -231,6 +231,7 @@ def build_router() -> Router:
         "methodology": {"gemini": fast, "groq": [q_light]},
         "goal_plan": {"gemini": fast, "groq": [q_light]},
         "background": {"gemini": fast, "groq": [q_light]},
+        "topic_name": {"gemini": fast, "groq": [q_light]},
         "goal_check": {"gemini": fast, "groq": [q_heavy]},  # small Groq models judged related pages wrongly
     }
     return Router(KeyPool("gemini", load_keys("GEMINI_API_KEY"), gemini_call),
