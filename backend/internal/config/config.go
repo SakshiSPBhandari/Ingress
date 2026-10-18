@@ -26,6 +26,10 @@ type Config struct {
 	JWTSecret       string
 	AgentURL        string
 	AgentKey        string
+	// Email codes (sign-up and password reset). Without SMTP_USER, codes are only written to the log (development).
+	SMTPHost, SMTPPort, SMTPUser, SMTPPassword, MailFrom string
+	// Google sign-in; turned off when GOOGLE_CLIENT_ID is empty.
+	GoogleClientID, GoogleClientSecret string
 }
 
 func (c Config) IsProduction() bool { return c.Env == "production" }
@@ -44,6 +48,19 @@ func Load() (Config, error) {
 	c.JWTSecret = os.Getenv("JWT_SECRET")
 	c.AgentURL = strings.TrimRight(get("AGENT_URL", "http://127.0.0.1:8000"), "/")
 	c.AgentKey = os.Getenv("AGENT_INTERNAL_KEY")
+	c.SMTPHost, c.SMTPPort = get("SMTP_HOST", "smtp.gmail.com"), get("SMTP_PORT", "587")
+	c.SMTPUser, c.SMTPPassword = get("SMTP_USER", ""), strings.ReplaceAll(os.Getenv("SMTP_PASSWORD"), " ", "")
+	c.MailFrom = get("MAIL_FROM", c.SMTPUser)
+	c.GoogleClientID, c.GoogleClientSecret = get("GOOGLE_CLIENT_ID", ""), get("GOOGLE_CLIENT_SECRET", "")
+	if c.SMTPUser != "" && c.SMTPPassword == "" {
+		errs = append(errs, errors.New("SMTP_PASSWORD is required when SMTP_USER is set"))
+	}
+	if c.SMTPUser == "" && c.Env == "production" {
+		errs = append(errs, errors.New("SMTP_USER and SMTP_PASSWORD are required in production (email codes)"))
+	}
+	if (c.GoogleClientID == "") != (c.GoogleClientSecret == "") {
+		errs = append(errs, errors.New("GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET must be set together"))
+	}
 	if len(c.JWTSecret) < 32 {
 		errs = append(errs, errors.New("JWT_SECRET must be at least 32 characters"))
 	}
