@@ -7,11 +7,12 @@
 import { API_MODE, EXTENSION_ID, absoluteApiBase } from "@/lib/api/config";
 import { tokensApi } from "@/lib/api/auth";
 import { toast } from "@/lib/toast";
+import { useAuthStore } from "@/stores/auth";
 import { useExtensionStore } from "@/stores/extension";
 
 type ExtMessage =
   | { type: "PING" }
-  | { type: "CONNECT_TOKEN"; token: string; api_base: string }
+  | { type: "CONNECT_TOKEN"; token: string; user_id?: string; api_base: string }
   | { type: "FOCUS_TAB"; url: string }
   | { type: "OPEN_URLS_AS_GROUP"; title: string; color: string; urls: string[] }
   | { type: "CLOSE_SAVED_TABS"; urls: string[] }
@@ -60,7 +61,7 @@ export async function detectExtension(): Promise<boolean> {
 }
 
 /** Lowest extension version this web app works with. Raise it together with extension/manifest.json. */
-const NEEDED_EXTENSION_VERSION = [1, 1, 5];
+const NEEDED_EXTENSION_VERSION = [1, 1, 6];
 let reloadTried = false; // one self-reload per page load, so a stale folder cannot cause a reload loop
 let manualShown = false;
 
@@ -123,15 +124,17 @@ function openPort() {
 /** Detects the extension, gives it an extension token if it has none, and opens the message port. */
 export async function connectExtension(opts: { forceNewToken?: boolean } = {}): Promise<boolean> {
   if (API_MODE !== "http") return detectExtension();
-  const ping = await call<{ ok: boolean; connected: boolean; version?: string }>({ type: "PING" }, 800);
+  const ping = await call<{ ok: boolean; connected: boolean; version?: string; user_id?: string | null }>({ type: "PING" }, 800);
   if (!ping) {
     useExtensionStore.getState().setConnected(false);
     return false;
   }
   void updateIfOutdated(ping.version);
-  if (!ping.connected || opts.forceNewToken) {
+  // Connect again when the extension has no token or belongs to another (or a deleted) account.
+  const userId = useAuthStore.getState().user?.id;
+  if (!ping.connected || opts.forceNewToken || (userId && ping.user_id !== userId)) {
     const t = await tokensApi.create("extension", "Chrome extension");
-    await call({ type: "CONNECT_TOKEN", token: t.token, api_base: process.env.NEXT_PUBLIC_EXTENSION_API_BASE || absoluteApiBase() });
+    await call({ type: "CONNECT_TOKEN", token: t.token, user_id: userId, api_base: process.env.NEXT_PUBLIC_EXTENSION_API_BASE || absoluteApiBase() });
   }
   openPort();
   useExtensionStore.getState().setConnected(true);
