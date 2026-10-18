@@ -1,8 +1,8 @@
 "use client";
 /** Header and footer shared by the landing page and the explanation pages. */
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 import Link from "next/link";
-import { Browsers, Cloud, X } from "@phosphor-icons/react";
+import { Browsers, Cloud } from "@phosphor-icons/react";
 import { useAuthStore } from "@/stores/auth";
 import { useDemoLogin } from "./useDemoLogin";
 
@@ -18,22 +18,19 @@ const CLOUD_RUN_STATUS = "https://research-map-api-812274791846.asia-southeast1.
 
 /** A thin top bar that shows where the product is hosted. */
 function HostingBanner() {
-  const [open, setOpen] = useState(true);
-  if (!open) return null;
-  const link = "font-semibold text-white underline decoration-white/40 underline-offset-4 hover:decoration-white";
+  const link = "font-extrabold text-ink underline decoration-purple decoration-2 underline-offset-4 transition-colors hover:text-purple-deep";
   return (
-    <div className="bg-ink px-6 py-2.5 text-sm text-white/80">
-      <div className="mx-auto flex max-w-6xl items-center justify-center gap-3">
-        <Cloud size={18} weight="bold" className="shrink-0 text-white" />
+    <div className="border-b border-ink/10 bg-brand-gradient px-6 py-3 text-[15px] font-semibold text-ink-soft">
+      <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-center gap-x-3 gap-y-2">
+        <span className="inline-flex shrink-0 items-center gap-2 rounded-full bg-ink px-3 py-1 text-xs font-bold text-white">
+          <Cloud size={14} weight="bold" /> Live on Google Cloud
+        </span>
         <p className="text-center">
-          Hosted on Google Cloud: the web app runs on{" "}
+          The web app runs on{" "}
           <a href={FIREBASE_URL} target="_blank" rel="noreferrer" className={link}>Firebase Hosting</a>
           {" "}and the server runs on{" "}
           <a href={CLOUD_RUN_STATUS} target="_blank" rel="noreferrer" className={link}>Google Cloud Run</a>.
         </p>
-        <button onClick={() => setOpen(false)} aria-label="Close" className="shrink-0 rounded-full p-1 text-white/70 transition hover:bg-white/10 hover:text-white">
-          <X size={14} weight="bold" />
-        </button>
       </div>
     </div>
   );
