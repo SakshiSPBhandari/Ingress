@@ -24,6 +24,8 @@ async function api(method, path, body) {
     body: body ? JSON.stringify(body) : undefined,
   });
   const data = await res.json().catch(() => null);
+  // The token was removed (account deleted or signed out): forget it so the web app connects again.
+  if (res.status === 401) await set({ token: null, userId: null });
   if (!res.ok) throw Object.assign(new Error(data?.error?.message || res.status), { status: res.status });
   return data;
 }
@@ -113,15 +115,15 @@ chrome.runtime.onMessageExternal.addListener((msg, sender, reply) => {
 async function handleExternal(msg, sender) {
   switch (msg?.type) {
     case "PING": {
-      const { token } = await get("token");
-      return { ok: true, version: chrome.runtime.getManifest().version, connected: !!token };
+      const { token, userId } = await get(["token", "userId"]);
+      return { ok: true, version: chrome.runtime.getManifest().version, connected: !!token, user_id: userId || null };
     }
     case "RELOAD": // the web app needs newer code: reload this unpacked extension from its folder
       setTimeout(() => chrome.runtime.reload(), 100);
       return { ok: true };
     case "CONNECT_TOKEN":
       // The web app sends its API address; without one, the API is reached through the app itself.
-      await set({ token: msg.token, apiBase: msg.api_base || sender.origin + "/api/v1", webOrigin: sender.origin });
+      await set({ token: msg.token, userId: msg.user_id || null, apiBase: msg.api_base || sender.origin + "/api/v1", webOrigin: sender.origin });
       await syncState();
       return { ok: true };
     case "START_TRACKING": {
