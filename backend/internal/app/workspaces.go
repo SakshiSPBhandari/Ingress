@@ -205,6 +205,14 @@ func (a *App) deleteWorkspace(c *gin.Context) error {
 	if _, err := a.requireWS(c, c.Param("id"), "owner"); err != nil {
 		return err
 	}
+	// A workspace that someone is tracking into cannot be deleted: the session must be stopped first.
+	var tracking bool
+	if err := a.db.QueryRow(c, `SELECT EXISTS (SELECT 1 FROM sessions WHERE workspace_id=$1 AND state<>'stopped')`, c.Param("id")).Scan(&tracking); err != nil {
+		return err
+	}
+	if tracking {
+		return httpx.NewError(409, httpx.CodeConflict, "Tracking is still on in this workspace. Stop tracking first, then delete it.")
+	}
 	if _, err := a.db.Exec(c, `UPDATE workspaces SET deleted_at=now() WHERE id=$1`, c.Param("id")); err != nil {
 		return err
 	}

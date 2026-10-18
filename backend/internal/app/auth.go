@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"net/http"
-	"net/mail"
 	"strings"
 	"sync"
 	"time"
@@ -15,7 +14,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -51,45 +49,6 @@ func (a *App) setSessionCookie(c *gin.Context, userID string) error {
 	return nil
 }
 
-func (a *App) register(c *gin.Context) error {
-	if !a.limiter.allow("reg:" + c.ClientIP()) {
-		return httpx.RateLimited("Too many attempts. Try again in a minute.")
-	}
-	var b struct{ Name, Email, Password string }
-	if err := bind(c, &b); err != nil {
-		return err
-	}
-	b.Name, b.Email = strings.TrimSpace(b.Name), strings.ToLower(strings.TrimSpace(b.Email))
-	if _, err := mail.ParseAddress(b.Email); b.Name == "" || err != nil || len(b.Name) > 80 {
-		return httpx.Validation("Enter your name and a valid email")
-	}
-	if len(b.Password) < 8 || len(b.Password) > 72 {
-		return httpx.Validation("Password must be 8 to 72 characters")
-	}
-	hash, err := bcrypt.GenerateFromPassword([]byte(b.Password), 12)
-	if err != nil {
-		return err
-	}
-	var n int
-	_ = a.db.QueryRow(c, `SELECT count(*) FROM users`).Scan(&n)
-	var u User
-	err = a.db.QueryRow(c, `INSERT INTO users (email,name,password_hash,avatar_color) VALUES ($1,$2,$3,$4)
-		RETURNING id,email,name,avatar_color,created_at`, b.Email, b.Name, string(hash), avatarColors[n%len(avatarColors)]).
-		Scan(&u.ID, &u.Email, &u.Name, &u.AvatarColor, &u.CreatedAt)
-	var pgErr *pgconn.PgError
-	if errors.As(err, &pgErr) && pgErr.Code == "23505" {
-		return httpx.NewError(409, httpx.CodeConflict, "An account with this email already exists")
-	}
-	if err != nil {
-		return err
-	}
-	if err := a.setSessionCookie(c, u.ID); err != nil {
-		return err
-	}
-	c.JSON(201, gin.H{"user": u})
-	return nil
-}
-
 func (a *App) login(c *gin.Context) error {
 	var b struct{ Email, Password string }
 	if err := bind(c, &b); err != nil {
@@ -101,7 +60,7 @@ func (a *App) login(c *gin.Context) error {
 	}
 	var u User
 	var hash string
-	err := a.db.QueryRow(c, `SELECT id,email,name,avatar_color,created_at,password_hash FROM users WHERE email=$1`, email).
+	err := a.db.QueryRow(c, `SELECT id,email,name,avatar_color,created_at,coalesce(password_hash,'') FROM users WHERE email=$1`, email).
 		Scan(&u.ID, &u.Email, &u.Name, &u.AvatarColor, &u.CreatedAt, &hash)
 	if errors.Is(err, pgx.ErrNoRows) {
 		_ = bcrypt.CompareHashAndPassword([]byte("$2a$12$C6UzMDM.H6dfI/f/IKcEeO5wHn1nZ9O1mGhTPe6u6vW3c3rB6J6nW"), []byte(b.Password)) // equal timing
@@ -109,6 +68,9 @@ func (a *App) login(c *gin.Context) error {
 	}
 	if err != nil {
 		return err
+	}
+	if hash == "" {
+		return httpx.Unauthorized("This account uses Google sign-in. Please choose Continue with Google, or reset your password to add one.")
 	}
 	if bcrypt.CompareHashAndPassword([]byte(hash), []byte(b.Password)) != nil {
 		return httpx.Unauthorized("Email or password is incorrect")

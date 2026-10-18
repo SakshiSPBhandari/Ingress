@@ -42,9 +42,16 @@ func (a *App) Routes(e *gin.Engine) {
 	r.GET("/healthz", func(c *gin.Context) { c.JSON(200, gin.H{"ok": true}) })
 	r.GET("/readyz", a.readyz)
 
+	r.GET("/auth/options", func(c *gin.Context) { c.JSON(200, gin.H{"google": a.cfg.GoogleClientID != ""}) })
 	r.POST("/auth/register", httpx.H(a.register))
+	r.POST("/auth/verify", httpx.H(a.verifyEmail))
+	r.POST("/auth/resend", httpx.H(a.resendCode))
+	r.POST("/auth/forgot", httpx.H(a.forgotPassword))
+	r.POST("/auth/reset", httpx.H(a.resetPassword))
 	r.POST("/auth/login", httpx.H(a.login))
 	r.POST("/auth/logout", httpx.H(a.logout))
+	r.GET("/auth/google", a.googleStart)
+	r.GET("/auth/google/callback", a.googleCallback)
 
 	p := r.Group("", a.authMiddleware)
 	p.GET("/me", httpx.H(a.me))

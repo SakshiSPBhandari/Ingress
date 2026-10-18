@@ -308,6 +308,16 @@ func (p *Pipeline) process(ctx context.Context, nodeID string) {
 	p.job(wsID, "analyze_page", "done", msg, nid, 1)
 
 	if !u.IsResearch && !u.Fallback {
+		// A page the goal check found part of the goal is research, whatever kind of page it is (for example a pricing page).
+		var onGoal bool
+		_ = a.db.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM goal_checks g JOIN pages p ON p.url_normalized=g.url_normalized
+			JOIN sessions s ON s.id=g.session_id AND s.workspace_id=p.workspace_id WHERE p.id=$1 AND g.on_goal)`, pageID).Scan(&onGoal)
+		if onGoal {
+			u.IsResearch = true
+			_, _ = a.db.Exec(ctx, `UPDATE pages SET is_research=true WHERE id=$1`, pageID)
+		}
+	}
+	if !u.IsResearch && !u.Fallback {
 		p.memory(ctx, wsID, nodeID, pageID, u, 0, "")
 		p.stage(ctx, nodeID, "ready", ", status='inbox'")
 		p.job(wsID, "analyze_page", "done", "Moved “"+title+"” to Inbox (not research)", nid, 1)
@@ -320,6 +330,9 @@ func (p *Pipeline) process(ctx context.Context, nodeID string) {
 	created, topicName := p.connect(ctx, wsID, nodeID, pageID, u, whyRaw)
 	if topicName != "" {
 		topicName = p.placeInTopic(ctx, wsID, nodeID, topicName)
+		if name := p.nameTopic(ctx, wsID, nodeID); name != "" {
+			topicName = name
+		}
 	}
 	p.stage(ctx, nodeID, "connected", "")
 	place := ""
@@ -725,6 +738,43 @@ func (p *Pipeline) placeInTopic(ctx context.Context, wsID, nodeID, topicName str
 	var title string
 	_ = a.db.QueryRow(ctx, `SELECT title FROM nodes WHERE id=$1`, topicID).Scan(&title)
 	return title
+}
+
+// nameTopic names the page's AI cluster from all of its pages (the first page alone often gave a narrow name,
+// such as "Jenkins elections"). Clusters the user created are never renamed. Returns the new name, or "".
+func (p *Pipeline) nameTopic(ctx context.Context, wsID, nodeID string) string {
+	a := p.a
+	var topicID string
+	if a.db.QueryRow(ctx, `SELECT t.id FROM nodes n JOIN nodes t ON t.id=n.parent_id AND t.type='topic' AND t.created_via='ai'
+		WHERE n.id=$1`, nodeID).Scan(&topicID) != nil {
+		return ""
+	}
+	rows, err := a.db.Query(ctx, `SELECT n.title, coalesce(pg.summary,'') FROM nodes n LEFT JOIN pages pg ON pg.id=n.page_id
+		WHERE n.parent_id=$1 AND n.deleted_at IS NULL ORDER BY n.created_at LIMIT 12`, topicID)
+	if err != nil {
+		return ""
+	}
+	pages := []gin.H{}
+	for rows.Next() {
+		var title, summary string
+		if rows.Scan(&title, &summary) == nil {
+			pages = append(pages, gin.H{"title": title, "summary": summary})
+		}
+	}
+	rows.Close()
+	var goal string
+	_ = a.db.QueryRow(ctx, `SELECT coalesce(goal,'') FROM sessions WHERE workspace_id=$1 ORDER BY started_at DESC LIMIT 1`, wsID).Scan(&goal)
+	var out struct {
+		Name string `json:"name"`
+	}
+	if a.agent.post(ctx, "/v1/topic_name", gin.H{"pages": pages, "goal": goal}, &out) != nil || strings.TrimSpace(out.Name) == "" {
+		return ""
+	}
+	name := truncateRunes(strings.TrimSpace(out.Name), 60)
+	if tag, err := a.db.Exec(ctx, `UPDATE nodes SET title=$2, version=version+1, updated_at=now() WHERE id=$1 AND title<>$2`, topicID, name); err == nil && tag.RowsAffected() > 0 {
+		a.publishNode(ctx, "node.updated", topicID, nil)
+	}
+	return name
 }
 
 // packTopic lays children of a topic in a grid (same constants as frontend/lib/graph/layout.ts packTopic),
