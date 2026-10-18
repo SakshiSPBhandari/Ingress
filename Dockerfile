@@ -19,7 +19,8 @@ RUN python -c "from fastembed import TextEmbedding; TextEmbedding(model_name='BA
 COPY agent/app ./agent/app
 COPY --from=go-build /out/server ./server
 COPY scripts/start.sh ./start.sh
-RUN chmod +x ./start.sh && useradd -r -u 10001 app && chown -R app /app /models
+# Strip Windows line endings in case the script was checked out on Windows.
+RUN sed -i 's/\r$//' ./start.sh && chmod +x ./start.sh && useradd -r -u 10001 app && chown -R app /app /models
 USER app
 EXPOSE 8080
 CMD ["./start.sh"]
