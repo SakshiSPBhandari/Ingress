@@ -12,9 +12,15 @@ interface AuthState {
   error: string | null;
   bootstrap: () => Promise<void>;
   login: (body: LoginRequest) => Promise<boolean>;
-  register: (body: RegisterRequest) => Promise<boolean>;
+  /** "verify" when an email code was sent, "done" when signed in, false on error. */
+  register: (body: RegisterRequest) => Promise<"verify" | "done" | false>;
+  verify: (email: string, code: string) => Promise<boolean>;
+  signedIn: (user: User) => void;
+  clearError: () => void;
   logout: () => Promise<void>;
 }
+
+const message = (e: unknown) => (e instanceof ApiError ? e.message : friendlyError(e).message);
 
 export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
@@ -45,14 +51,31 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   register: async (body) => {
     set({ status: "loading", error: null });
     try {
-      const { user } = await authApi.register(body);
-      set({ user, status: "authenticated" });
-      return true;
+      const res = await authApi.register(body);
+      if ("user" in res) {
+        set({ user: res.user, status: "authenticated" });
+        return "done";
+      }
+      set({ status: "unauthenticated" });
+      return "verify";
     } catch (e) {
-      set({ status: "unauthenticated", error: e instanceof ApiError ? e.message : friendlyError(e).message });
+      set({ status: "unauthenticated", error: message(e) });
       return false;
     }
   },
+  verify: async (email, code) => {
+    set({ status: "loading", error: null });
+    try {
+      const { user } = await authApi.verify(email, code);
+      set({ user, status: "authenticated" });
+      return true;
+    } catch (e) {
+      set({ status: "unauthenticated", error: message(e) });
+      return false;
+    }
+  },
+  signedIn: (user) => set({ user, status: "authenticated", error: null }),
+  clearError: () => set({ error: null }),
   logout: async () => {
     try {
       await authApi.logout();

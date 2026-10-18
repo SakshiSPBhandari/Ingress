@@ -47,6 +47,10 @@ export interface LoginRequest {
 export interface AuthResponse {
   user: User;
 }
+export interface PendingSignup {
+  verification_required: true;
+  email: string;
+}
 
 export type TokenKind = "extension" | "mcp";
 export interface ApiToken {
