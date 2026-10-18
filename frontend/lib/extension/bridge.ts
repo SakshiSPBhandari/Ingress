@@ -61,7 +61,7 @@ export async function detectExtension(): Promise<boolean> {
 }
 
 /** Lowest extension version this web app works with. Raise it together with extension/manifest.json. */
-const NEEDED_EXTENSION_VERSION = [1, 1, 6];
+const NEEDED_EXTENSION_VERSION = [1, 1, 7];
 let reloadTried = false; // one self-reload per page load, so a stale folder cannot cause a reload loop
 let manualShown = false;
 

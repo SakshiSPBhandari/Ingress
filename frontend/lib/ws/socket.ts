@@ -4,6 +4,7 @@
  */
 import type { WsClientMessage, WsServerMessage } from "@/types/api";
 import { API_BASE_URL, API_MODE, WS_URL } from "@/lib/api/config";
+import { getSessionToken } from "@/lib/api/session";
 
 export type SocketStatus = "connecting" | "open" | "reconnecting" | "closed";
 
@@ -22,13 +23,18 @@ function realSocket(workspaceId: string, h: Handlers): WorkspaceSocket {
   let closed = false;
   let attempt = 0;
   let timer: ReturnType<typeof setTimeout> | undefined;
+  // NEXT_PUBLIC_WS_URL, else the API address (another host, e.g. Render), else this page's host.
   const base =
     WS_URL ||
-    `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}${API_BASE_URL}/ws`;
+    (/^https?:\/\//.test(API_BASE_URL)
+      ? `${API_BASE_URL.replace(/^http/, "ws")}/ws`
+      : `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}${API_BASE_URL}/ws`);
 
   const connect = () => {
     h.onStatus(attempt === 0 ? "connecting" : "reconnecting");
-    ws = new WebSocket(`${base}?workspace_id=${encodeURIComponent(workspaceId)}`);
+    // Browsers cannot send headers on a WebSocket, so the session token (if any) goes in the address.
+    const token = getSessionToken();
+    ws = new WebSocket(`${base}?workspace_id=${encodeURIComponent(workspaceId)}${token ? `&token=${encodeURIComponent(token)}` : ""}`);
     ws.onopen = () => {
       attempt = 0;
       h.onStatus("open");

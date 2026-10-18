@@ -46,6 +46,8 @@ export interface LoginRequest {
 }
 export interface AuthResponse {
   user: User;
+  /** session token, sent as "Authorization: Bearer" when the web app and the API are on different addresses */
+  token?: string;
 }
 export interface PendingSignup {
   verification_required: true;

@@ -1,5 +1,6 @@
 import { API_BASE_URL, API_MODE } from "./config";
 import { ApiError, parseApiError } from "./errors";
+import { getSessionToken } from "./session";
 
 export type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 export type Query = Record<string, string | number | boolean | null | undefined>;
@@ -28,11 +29,16 @@ function buildQuery(query?: Query): string {
 const httpTransport: Transport = {
   async request<T>(method: HttpMethod, path: string, opts: RequestOptions = {}): Promise<T> {
     let res: Response;
+    // Same address: the httpOnly cookie signs the request in. Another address (Firebase + Render): the Bearer token does.
+    const headers: Record<string, string> = {};
+    if (opts.body !== undefined) headers["Content-Type"] = "application/json";
+    const token = getSessionToken();
+    if (token) headers.Authorization = `Bearer ${token}`;
     try {
       res = await fetch(`${API_BASE_URL}${path}${buildQuery(opts.query)}`, {
         method,
         credentials: "include",
-        headers: opts.body !== undefined ? { "Content-Type": "application/json" } : undefined,
+        headers,
         body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
         signal: opts.signal,
       });

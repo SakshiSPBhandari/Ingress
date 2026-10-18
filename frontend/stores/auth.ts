@@ -2,6 +2,7 @@
 import { create } from "zustand";
 import type { LoginRequest, RegisterRequest, User } from "@/types/api";
 import { authApi } from "@/lib/api/auth";
+import { setSessionToken } from "@/lib/api/session";
 import { ApiError, friendlyError } from "@/lib/api/errors";
 
 type AuthStatus = "idle" | "loading" | "authenticated" | "unauthenticated" | "error";
@@ -33,7 +34,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const user = await authApi.me();
       set({ user, status: "authenticated" });
     } catch (e) {
-      if (e instanceof ApiError && e.code === "unauthorized") set({ user: null, status: "unauthenticated" });
+      if (e instanceof ApiError && e.code === "unauthorized") {
+        setSessionToken(null); // an expired token must not be sent again
+        set({ user: null, status: "unauthenticated" });
+      }
       else set({ status: "error", error: friendlyError(e).message });
     }
   },
