@@ -2,12 +2,12 @@
 @import "@xyflow/react/dist/style.css";
 
 /* ================================================================
-   DESIGN TOKENS: soft warm theme (slate grey -> peach -> coral, near-black ink).
+   DESIGN TOKENS: the landing page colours (white, peach, soft yellow, sky blue) with near-black ink.
    Token names are kept for the whole app: "purple" now holds the coral brand accent.
    ================================================================ */
 @theme {
   /* Base surfaces & ink */
-  --color-canvas: #f5f3f0;
+  --color-canvas: #faf8f5;
   --color-canvas-cool: #eceff3;
   --color-ink: #12151c;
   --color-ink-soft: #2d323c;
@@ -20,10 +20,10 @@
   /* Brand accent (coral) and soft companions */
   --color-purple: #ee7048;
   --color-purple-deep: #c4492a;
-  --color-lavender: #f8c9b4;
-  --color-lavender-soft: #fdebe3;
-  --color-sun: #f5d4a6;
-  --color-sun-soft: #fcf0df;
+  --color-lavender: #fbcfb6;
+  --color-lavender-soft: #fdeee5;
+  --color-sun: #fde3b0;
+  --color-sun-soft: #fff5e1;
   --color-sun-deep: #96601f;
   --color-coral: #f3a283;
   --color-coral-soft: #fde6dc;
@@ -31,9 +31,9 @@
   --color-mint: #c9e0d0;
   --color-mint-soft: #e8f2eb;
   --color-mint-deep: #3a7552;
-  --color-sky: #c5d1e0;
-  --color-sky-soft: #e6ecf3;
-  --color-sky-deep: #3d5f88;
+  --color-sky: #bfe2f5;
+  --color-sky-soft: #e8f5fc;
+  --color-sky-deep: #2f6a8f;
   --color-pink: #f4cdc6;
   --color-pink-soft: #fbe8e4;
   --color-pink-deep: #b8514a;
@@ -98,7 +98,7 @@
 
 /* Canvas patterns (DESIGN.md §6.1) */
 @utility bg-dots {
-  background-color: var(--color-canvas);
+  background-color: transparent; /* the page colour (bg-app) shows behind the dots */
   background-image: radial-gradient(rgb(28 27 43 / 0.09) 1.1px, transparent 1.2px);
   background-size: 22px 22px;
 }
@@ -125,6 +125,16 @@
 /* Brand colours of the landing page: peach, soft yellow and sky blue. Used for the logo tile and the highlighted word. */
 @utility bg-brand-gradient {
   background-image: linear-gradient(135deg, #fbc9ac 0%, #fde3b0 52%, #b9e0f4 100%);
+}
+/* App pages: warm white with the landing colours as faint glows in the corners (not a full gradient). */
+@utility bg-app {
+  background-color: #faf8f5;
+  background-image:
+    radial-gradient(42% 38% at 0% 0%, rgba(251, 207, 182, 0.42) 0%, rgba(251, 207, 182, 0) 70%),
+    radial-gradient(40% 36% at 100% 0%, rgba(191, 226, 245, 0.45) 0%, rgba(191, 226, 245, 0) 70%),
+    radial-gradient(46% 40% at 0% 100%, rgba(253, 227, 176, 0.38) 0%, rgba(253, 227, 176, 0) 70%),
+    radial-gradient(40% 36% at 100% 100%, rgba(191, 226, 245, 0.3) 0%, rgba(191, 226, 245, 0) 70%);
+  background-attachment: fixed;
 }
 /* Landing hero: white at the top, colour that builds up toward the bottom (peach, yellow, mint, sky blue), then a soft fade to white. */
 @utility bg-hero-glow {

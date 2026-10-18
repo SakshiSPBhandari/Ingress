@@ -4,7 +4,7 @@
  * Web → extension: chrome.runtime.sendMessage(EXTENSION_ID, …) via externally_connectable.
  * Extension → web: a long-lived port (chrome.runtime.connect) carrying TABS_STATE, SNAPSHOT, LIVE_STREAM_ID, TRACKING_STATE.
  */
-import { API_MODE, EXTENSION_ID } from "@/lib/api/config";
+import { API_MODE, EXTENSION_ID, absoluteApiBase } from "@/lib/api/config";
 import { tokensApi } from "@/lib/api/auth";
 import { toast } from "@/lib/toast";
 import { useExtensionStore } from "@/stores/extension";
@@ -60,7 +60,7 @@ export async function detectExtension(): Promise<boolean> {
 }
 
 /** Lowest extension version this web app works with. Raise it together with extension/manifest.json. */
-const NEEDED_EXTENSION_VERSION = [1, 1, 4];
+const NEEDED_EXTENSION_VERSION = [1, 1, 5];
 let reloadTried = false; // one self-reload per page load, so a stale folder cannot cause a reload loop
 let manualShown = false;
 
@@ -131,8 +131,7 @@ export async function connectExtension(opts: { forceNewToken?: boolean } = {}): 
   void updateIfOutdated(ping.version);
   if (!ping.connected || opts.forceNewToken) {
     const t = await tokensApi.create("extension", "Chrome extension");
-    const apiBase = `${window.location.protocol}//${window.location.hostname}:8080/api/v1`;
-    await call({ type: "CONNECT_TOKEN", token: t.token, api_base: process.env.NEXT_PUBLIC_EXTENSION_API_BASE || apiBase });
+    await call({ type: "CONNECT_TOKEN", token: t.token, api_base: process.env.NEXT_PUBLIC_EXTENSION_API_BASE || absoluteApiBase() });
   }
   openPort();
   useExtensionStore.getState().setConnected(true);

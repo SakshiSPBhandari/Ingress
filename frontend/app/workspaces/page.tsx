@@ -138,7 +138,7 @@ function WorkspacesView() {
   };
 
   return (
-    <div className="min-h-dvh bg-canvas pb-28 md:pb-12">
+    <div className="min-h-dvh bg-app pb-28 md:pb-12">
       <AppHeader />
       <main className="mx-auto max-w-7xl px-4 pt-8 sm:px-6">
         <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">

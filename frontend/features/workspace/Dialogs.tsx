@@ -156,7 +156,9 @@ export function ExportDialog({ workspaceId }: { workspaceId: string }) {
         const vp = getViewportForBounds(bounds, w, h, 0.05, 2, 0.05);
         // Favicons/previews from other sites often can't be fetched (CORS/404); without a placeholder html-to-image
         // rejects the whole capture with the image's error Event. A transparent pixel keeps the rest of the canvas.
-        const opts = { backgroundColor: "#f5f1e8", width: w, height: h, imagePlaceholder: BLANK_PIXEL, pixelRatio: 1, // dpr 2 × 4000px exceeds the canvas limit and never resolves
+        // Images from other websites (site icons) cannot be copied into a picture and break the whole capture, so they are left out.
+        const sameSite = (n: HTMLElement) => !(n instanceof HTMLImageElement && /^https?:/.test(n.src) && new URL(n.src).origin !== location.origin);
+        const opts = { backgroundColor: "#f5f1e8", width: w, height: h, imagePlaceholder: BLANK_PIXEL, pixelRatio: 1, filter: sameSite, // dpr 2 × 4000px exceeds the canvas limit and never resolves
           style: { width: `${w}px`, height: `${h}px`, transform: `translate(${vp.x}px, ${vp.y}px) scale(${vp.zoom})` } };
         const url = await Promise.race([
           id === "png" ? toPng(el, opts) : toSvg(el, opts),

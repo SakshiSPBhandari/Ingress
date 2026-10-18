@@ -7,25 +7,21 @@ import {
   ArrowRight,
   ArrowsLeftRight,
   CheckCircle,
-  Eye,
   GitBranch,
-  MagnifyingGlass,
   NotePencil,
-  Plus,
   Robot,
   Sparkle,
-  Target,
   Tray,
   X,
 } from "@phosphor-icons/react";
-import type { Conflict, RadarItem } from "@/types/api";
-import { conflictApi, radarApi, sessionApi, captureApi } from "@/lib/api";
+import type { Conflict } from "@/types/api";
+import { conflictApi } from "@/lib/api";
 import { CONFLICT_LABEL, RELATIONS } from "@/lib/domain/meta";
-import { formatDuration, formatTime, timeAgo } from "@/lib/utils/format";
+import { timeAgo } from "@/lib/utils/format";
 import { cn } from "@/lib/utils/cn";
 import { toast } from "@/lib/toast";
 import { Button } from "@/components/ui/button";
-import { Confidence, Pill, Select, Textarea } from "@/components/ui/primitives";
+import { Confidence, Pill, Textarea } from "@/components/ui/primitives";
 import { EmptyState, ErrorState, LoadingBlock } from "@/components/ui/states";
 import { useGraphStore } from "@/stores/graph";
 import { useUiStore } from "@/stores/ui";
@@ -70,92 +66,6 @@ export function EdgePanel({ edgeId, readOnly }: { edgeId: string; readOnly: bool
 }
 
 /* ---------------------------------------------------------------- Research Radar */
-
-function RadarCard({ item, workspaceId, readOnly }: { item: RadarItem; workspaceId: string; readOnly: boolean }) {
-  const qc = useQueryClient();
-  const suggest = useMutation({
-    mutationFn: () => radarApi.suggestions(workspaceId, item.topic_id ?? item.node_id ?? encodeURIComponent(item.id)),
-    onSuccess: () => qc.invalidateQueries({ queryKey: qk.radar(workspaceId) }),
-    onError: (e) => toast.apiError(e),
-  });
-  const setStatus = useMutation({
-    mutationFn: (status: "reviewed" | "ignored" | "open") => radarApi.updateItem(workspaceId, encodeURIComponent(item.id), { status }),
-    onSuccess: (_, s) => { void qc.invalidateQueries({ queryKey: qk.radar(workspaceId) }); toast.info(s === "ignored" ? "Ignored" : s === "reviewed" ? "Marked reviewed" : "Restored"); },
-  });
-  const kindLabel = { low_coverage: "Low coverage", unanswered_question: "Unanswered question", unexplored_concept: "Mentioned, not explored" }[item.kind];
-  const searches = item.suggested_searches ?? [];
-  return (
-    <div className={cn("rounded-[22px] border-2 bg-white p-4", item.status === "open" ? "border-danger/60 shadow-soft" : "border-line opacity-70")}>
-      <div className="flex items-center gap-2">
-        <span className={cn("h-2.5 w-2.5 rounded-full", item.status === "open" ? "animate-pulse bg-danger" : "bg-faint")} />
-        <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-danger">{kindLabel}</span>
-        {item.status !== "open" && <Pill tone="ink">{item.status}</Pill>}
-      </div>
-      <h4 className="mt-1.5 text-base font-bold text-ink">{item.title}</h4>
-      <p className="mt-1 text-sm text-ink-soft">{item.message}</p>
-      {item.kind === "low_coverage" && <p className="mt-1 text-xs text-muted">Sources: {item.source_count} · average {item.avg_sources}</p>}
-      <div className="mt-3">
-        <p className="text-[11px] font-bold uppercase tracking-wider text-muted">Suggested searches {searches.length > 0 && <Pill tone="lavender" className="ml-1"><Sparkle size={9} weight="fill" /> AI</Pill>}</p>
-        {searches.length ? (
-          <ul className="mt-1.5 space-y-1">
-            {searches.map((s) => (
-              <li key={s} className="flex items-center gap-2">
-                <a href={`https://www.google.com/search?q=${encodeURIComponent(s)}`} target="_blank" rel="noreferrer" className="flex-1 rounded-xl bg-canvas px-3 py-1.5 text-sm font-semibold hover:bg-sun-soft"><MagnifyingGlass size={13} className="mr-1 inline" />{s}</a>
-                {!readOnly && <button aria-label={`Add "${s}" as a question`} className="grid h-8 w-8 place-items-center rounded-full hover:bg-ink/5" onClick={() => void captureApi.search({ query: s, engine: "manual", url: `https://www.google.com/search?q=${encodeURIComponent(s)}`, workspace_id: workspaceId }).then(() => toast.success("Question added to canvas")).catch(toast.apiError)}><Plus size={14} weight="bold" /></button>}
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <Button size="xs" variant="soft" className="mt-1.5" loading={suggest.isPending} onClick={() => suggest.mutate()}><Sparkle size={12} weight="fill" /> Suggest searches</Button>
-        )}
-      </div>
-      <div className="mt-3 flex flex-wrap gap-1.5 border-t border-line pt-3">
-        {(item.node_id || item.related_node_ids[0]) && <Button size="xs" variant="secondary" onClick={() => jump(item.node_id ?? item.related_node_ids[0]!)}><Eye size={12} weight="bold" /> Review</Button>}
-        {searches[0] && <Button size="xs" variant="secondary" onClick={() => { searches.forEach((s) => window.open(`https://www.google.com/search?q=${encodeURIComponent(s)}`, "_blank", "noopener")); toast.info("Opened searches — tracking will catch new pages."); }}><MagnifyingGlass size={12} weight="bold" /> Explore</Button>}
-        {!readOnly && item.status === "open" && <Button size="xs" variant="ghost" onClick={() => setStatus.mutate("reviewed")}>Reviewed</Button>}
-        {!readOnly && (item.status === "open" ? <Button size="xs" variant="ghost" onClick={() => setStatus.mutate("ignored")}>Ignore</Button> : <Button size="xs" variant="ghost" onClick={() => setStatus.mutate("open")}>Restore</Button>)}
-      </div>
-    </div>
-  );
-}
-
-export function RadarPanel({ workspaceId, readOnly }: { workspaceId: string; readOnly: boolean }) {
-  const q = useQuery({ queryKey: qk.radar(workspaceId), queryFn: () => radarApi.get(workspaceId) });
-  if (q.isLoading) return <LoadingBlock label="Loading radar…" />;
-  if (q.error) return <ErrorState error={q.error} onRetry={() => void q.refetch()} />;
-  const r = q.data!;
-  const open = r.items.filter((i) => i.status === "open");
-  return (
-    <div className="space-y-3">
-      <p className="rounded-2xl bg-sun-soft p-3 text-xs font-medium text-sun-deep">
-        Radar is a <strong>workspace coverage signal</strong>. It shows areas that appear under-covered in <em>your workspace</em> — not gaps in science.
-      </p>
-      {!r.eligible && <p className="rounded-2xl bg-white p-3 text-sm text-muted">{r.eligibility_message}</p>}
-      {!r.items.length ? (
-        <EmptyState compact icon={Target} tone="mint" title="Your workspace coverage looks balanced." message="Nothing appears under-covered right now." />
-      ) : (
-        [...open, ...r.items.filter((i) => i.status !== "open")].map((i) => <RadarCard key={i.id} item={i} workspaceId={workspaceId} readOnly={readOnly} />)
-      )}
-      {r.topics.length > 0 && (
-        <section className="rounded-2xl bg-white p-4 shadow-clay-sm">
-          <h4 className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted">Coverage by topic</h4>
-          <ul className="mt-2 space-y-2">
-            {r.topics.map((t) => (
-              <li key={t.topic_id}>
-                <button className="w-full text-left" onClick={() => t.topic_id && jump(t.topic_id)}>
-                  <div className="flex justify-between text-xs font-semibold"><span>{t.topic_name}</span><span className="tabular text-muted">{t.sources} src · {t.minutes} min</span></div>
-                  <div className="mt-1 h-2 overflow-hidden rounded-full bg-ink/10"><div className={cn("h-full rounded-full", t.flagged ? "bg-danger" : "bg-gradient-to-r from-lavender to-purple")} style={{ width: `${Math.min(100, (t.coverage / 2) * 100)}%` }} /></div>
-                </button>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-    </div>
-  );
-}
-
-/* ---------------------------------------------------------------- Conflict Radar */
 
 function ConflictDetail({ c, readOnly, onBack }: { c: Conflict; readOnly: boolean; onBack: () => void }) {
   const qc = useQueryClient();
@@ -258,64 +168,9 @@ export function ConflictPanel({ workspaceId, readOnly }: { workspaceId: string; 
 
 /* ---------------------------------------------------------------- Research Memory */
 
-export function MemoryPanel({ workspaceId }: { workspaceId: string }) {
-  const sessions = useQuery({ queryKey: qk.sessions(workspaceId), queryFn: () => sessionApi.list(workspaceId) });
-  const [sid, setSid] = useState<string | undefined>(undefined);
-  const journey = useQuery({ queryKey: qk.journey(workspaceId, sid), queryFn: () => sessionApi.journey(workspaceId, sid) });
-  const journeyOn = useUiStore((s) => s.journeyOverlay);
-  if (journey.isLoading) return <LoadingBlock label="Loading research journey…" />;
-  if (journey.error) return <ErrorState error={journey.error} onRetry={() => void journey.refetch()} />;
-  const items = journey.data!.items;
-  // collapse consecutive visits of the same topic into journey steps
-  const steps: { topic: string; start: string; ms: number; pages: Set<string>; firstNode: string | null }[] = [];
-  items.forEach((it) => {
-    const last = steps[steps.length - 1];
-    if (last && last.topic === it.topic_name) { last.ms += it.duration_ms; last.pages.add(it.title); }
-    else steps.push({ topic: it.topic_name, start: it.started_at, ms: it.duration_ms, pages: new Set([it.title]), firstNode: it.node_id });
-  });
-  const perTopic = new Map<string, number>();
-  items.forEach((i) => perTopic.set(i.topic_name, (perTopic.get(i.topic_name) ?? 0) + i.duration_ms));
-  return (
-    <div className="space-y-3">
-      <div className="flex gap-2">
-        <Select aria-label="Session" className="h-9 flex-1 text-xs" value={sid ?? ""} onChange={(e) => setSid(e.target.value || undefined)}>
-          <option value="">All sessions</option>
-          {sessions.data?.map((s) => <option key={s.id} value={s.id}>{s.title} · {new Date(s.started_at).toLocaleDateString()}</option>)}
-        </Select>
-        <Button size="sm" variant={journeyOn ? "primary" : "secondary"} onClick={() => useUiStore.getState().toggleJourney()}>Journey line</Button>
-      </div>
-      <section className="rounded-2xl bg-white p-4 shadow-clay-sm">
-        <h4 className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted">Time per topic</h4>
-        {[...perTopic.entries()].sort((a, b) => b[1] - a[1]).map(([t, ms]) => (
-          <p key={t} className="mt-1.5 flex justify-between text-sm"><span className="font-semibold">{formatDuration(ms)} worked on {t}</span></p>
-        ))}
-        {!perTopic.size && <p className="text-sm text-muted">No tracked time yet.</p>}
-      </section>
-      <section className="rounded-2xl bg-white p-4 shadow-clay-sm">
-        <h4 className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted">Research journey</h4>
-        {!steps.length && <p className="mt-2 text-sm text-muted">Start Tracking and browse normally — your journey appears here.</p>}
-        <ol className="relative mt-3 space-y-3 border-l-2 border-dashed border-ink/20 pl-5">
-          {steps.map((s, i) => (
-            <li key={i} className="relative">
-              <span className="absolute -left-[27px] top-0.5 grid h-5 w-5 place-items-center rounded-full border border-line bg-sun text-[9px] font-extrabold">{i + 1}</span>
-              <button className="text-left" onClick={() => s.firstNode && jump(s.firstNode)}>
-                <p className="tabular text-xs font-bold text-muted">{formatTime(s.start)} · {formatDuration(s.ms)}</p>
-                <p className="font-bold text-ink">{s.topic}</p>
-                <p className="line-clamp-1 text-xs text-muted">{[...s.pages].join(" · ")}</p>
-              </button>
-            </li>
-          ))}
-        </ol>
-      </section>
-    </div>
-  );
-}
-
-/* ---------------------------------------------------------------- AI activity feed + Inbox */
-
 export function ActivityPanel() {
   const jobs = useSessionStore((s) => s.jobs);
-  if (!jobs.length) return <EmptyState compact icon={Robot} title="No AI activity yet." message="When pages are captured, Agent 1 → Agent 2 → Agent 3 steps appear here live." />;
+  if (!jobs.length) return <EmptyState compact icon={Robot} title="No AI work right now." message="When you open a page, Gemini reads it, writes a summary and links it to your other pages. You can watch each step here while it happens." />;
   return (
     <ol className="space-y-2">
       {jobs.map((j) => (

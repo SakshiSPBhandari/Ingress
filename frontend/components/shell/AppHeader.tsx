@@ -57,7 +57,7 @@ export function AppHeader() {
   const pathname = usePathname();
   return (
     <>
-      <header className="sticky top-0 z-40 border-b border-ink/5 bg-canvas/85 backdrop-blur-md">
+      <header className="sticky top-0 z-40 border-b border-ink/5 bg-white/60 backdrop-blur-md">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-3 px-4 sm:px-6">
           <Logo />
           <nav className="hidden items-center gap-1 rounded-full bg-white p-1 shadow-clay-sm md:flex" aria-label="Main">

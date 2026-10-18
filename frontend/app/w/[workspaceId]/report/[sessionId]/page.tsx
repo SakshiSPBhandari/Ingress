@@ -29,9 +29,12 @@ function Report() {
   const router = useRouter();
   const qc = useQueryClient();
   const ws = useQuery({ queryKey: ["ws", workspaceId], queryFn: () => workspaceApi.get(workspaceId) });
-  const sessions = useQuery({ queryKey: qk.sessions(workspaceId), queryFn: () => sessionApi.list(workspaceId) });
-  const stats = useQuery({ queryKey: qk.stats(sessionId), queryFn: () => sessionApi.stats(sessionId) });
-  const refs = useQuery({ queryKey: qk.refs(sessionId), queryFn: () => sessionApi.references(sessionId) });
+  // While the session is still running, re-check every few seconds so the page shows the end and the final numbers by itself.
+  const isLive = (list?: { id: string; state: string }[]) => list?.find((x) => x.id === sessionId)?.state !== "stopped";
+  const sessions = useQuery({ queryKey: qk.sessions(workspaceId), queryFn: () => sessionApi.list(workspaceId), refetchInterval: (q) => (isLive(q.state.data) ? 5000 : false) });
+  const live = isLive(sessions.data);
+  const stats = useQuery({ queryKey: qk.stats(sessionId), queryFn: () => sessionApi.stats(sessionId), refetchInterval: live ? 10000 : false });
+  const refs = useQuery({ queryKey: qk.refs(sessionId), queryFn: () => sessionApi.references(sessionId), refetchInterval: live ? 10000 : false });
   const report = useQuery({
     queryKey: qk.report(sessionId),
     queryFn: () => reportApi.get(sessionId),
@@ -79,8 +82,8 @@ function Report() {
   ];
 
   return (
-    <div className="min-h-dvh bg-canvas pb-16">
-      <header className="no-print sticky top-0 z-30 border-b border-ink/5 bg-canvas/85 backdrop-blur-md">
+    <div className="min-h-dvh bg-app pb-16">
+      <header className="no-print sticky top-0 z-30 border-b border-ink/5 bg-white/60 backdrop-blur-md">
         <div className="mx-auto flex h-16 max-w-4xl items-center gap-3 px-4 sm:px-6">
           <Link href={`/w/${workspaceId}`} className="grid h-9 w-9 place-items-center rounded-full bg-white shadow-clay-sm" aria-label="Back to canvas"><ArrowLeft size={16} weight="bold" /></Link>
           <div className="min-w-0 flex-1">

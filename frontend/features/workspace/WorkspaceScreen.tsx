@@ -27,11 +27,9 @@ import {
   SquaresFour,
   Stop,
   Sword,
-  Target,
   Tray,
   WifiSlash,
   X,
-  Brain,
 } from "@phosphor-icons/react";
 import type { PanelKind, Session, ViewMode } from "@/types/api";
 import { sessionApi, workspaceApi } from "@/lib/api";
@@ -54,7 +52,7 @@ import { useCollabStore, useSignalsStore } from "@/stores/collab";
 import { createNode } from "@/features/graph/actions";
 import { Canvas } from "@/features/canvas/Canvas";
 import { NodePanel } from "@/features/panels/NodePanel";
-import { ActivityPanel, ConflictPanel, EdgePanel, InboxPanel, MemoryPanel, RadarPanel } from "@/features/panels/SidePanels";
+import { ActivityPanel, ConflictPanel, EdgePanel, InboxPanel } from "@/features/panels/SidePanels";
 import { GridView, ListView, TimelineView } from "@/features/views/Views";
 import { CommandPalette } from "@/features/search/CommandPalette";
 import { AddPageDialog, ExportDialog, ShareDialog, ShortcutsDialog, StopSessionDialog } from "./Dialogs";
@@ -294,7 +292,6 @@ function TopBar({ workspaceId, readOnly }: { workspaceId: string; readOnly: bool
   const presence = useCollabStore((s) => s.presence);
   const members = useGraphStore((s) => s.workspace?.members.length ?? 1);
   const conflicts = useSignalsStore((s) => s.conflicts.filter((c) => c.status === "open").length);
-  const radar = useSignalsStore((s) => s.radar?.items.filter((i) => i.status === "open").length ?? 0);
   const inbox = useGraphStore((s) => s.nodes.filter((n) => n.data.node.status === "inbox").length);
   const router = useRouter();
   const lastSession = useSessionStore((s) => s.session);
@@ -303,7 +300,7 @@ function TopBar({ workspaceId, readOnly }: { workspaceId: string; readOnly: bool
   const panel = (p: Exclude<PanelKind, null>) => () => useUiStore.getState().togglePanel(p);
 
   return (
-    <header className="z-30 flex h-14 w-full shrink-0 items-center justify-between gap-2 border-b border-ink/5 bg-canvas/90 px-3 backdrop-blur-md sm:px-4">
+    <header className="z-30 flex h-14 w-full shrink-0 items-center justify-between gap-2 border-b border-ink/5 bg-white/60 backdrop-blur-md px-3 backdrop-blur-md sm:px-4">
       {/* Left: where am I + tracking. May shrink (the title truncates) so the right side always stays on screen. */}
       <div className="flex min-w-0 items-center gap-2">
         <Link href="/workspaces" aria-label="Back to workspaces" className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white shadow-clay-sm hover:-translate-y-0.5 transition">
@@ -352,8 +349,6 @@ function TopBar({ workspaceId, readOnly }: { workspaceId: string; readOnly: bool
           <MenuContent>
             <MenuLabel>Insights</MenuLabel>
             <MenuItem onSelect={panel("conflicts")}><Sword size={17} weight="bold" /> Conflict Radar{conflicts ? ` (${conflicts})` : ""}</MenuItem>
-            <MenuItem onSelect={panel("radar")}><Target size={17} weight="bold" /> Research Radar{radar ? ` (${radar})` : ""}</MenuItem>
-            <MenuItem onSelect={panel("memory")}><Brain size={17} weight="bold" /> Research Memory</MenuItem>
             <MenuItem onSelect={panel("activity")}><Robot size={17} weight="bold" /> AI activity</MenuItem>
             {inbox > 0 && <MenuItem onSelect={panel("inbox")}><Tray size={17} weight="bold" /> Inbox ({inbox})</MenuItem>}
             <MenuItem onSelect={async () => {
@@ -437,9 +432,7 @@ function PanelDrawer({ workspaceId, readOnly }: { workspaceId: string; readOnly:
           <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
             {panel === "node" && nodeId && <NodePanel key={nodeId} nodeId={nodeId} readOnly={readOnly} />}
             {panel === "edge" && edgeId && <EdgePanel key={edgeId} edgeId={edgeId} readOnly={readOnly} />}
-            {panel === "radar" && <RadarPanel workspaceId={workspaceId} readOnly={readOnly} />}
             {panel === "conflicts" && <ConflictPanel workspaceId={workspaceId} readOnly={readOnly} />}
-            {panel === "memory" && <MemoryPanel workspaceId={workspaceId} />}
             {panel === "activity" && <ActivityPanel />}
             {panel === "inbox" && <InboxPanel readOnly={readOnly} />}
           </div>
@@ -462,7 +455,6 @@ function useShortcuts(readOnly: boolean) {
       if (views[e.key]) ui.setViewMode(views[e.key]!);
       else if (e.key === "Escape") { ui.openPanel(null); ui.selectNode(null, false); }
       else if (e.key === "?") ui.setDialog("shortcuts");
-      else if (e.key.toLowerCase() === "r") ui.togglePanel("radar");
       else if (e.key.toLowerCase() === "c") ui.togglePanel("conflicts");
       else if (e.key.toLowerCase() === "n" && !readOnly && ui.viewMode === "graph") {
         const el = document.querySelector(".react-flow")?.getBoundingClientRect();
@@ -496,10 +488,10 @@ function Inner({ workspaceId }: { workspaceId: string }) {
   if (!loaded) return <LoadingBlock label="Loading graph…" className="h-dvh" />;
 
   return (
-    <div className="flex h-dvh flex-col overflow-hidden bg-canvas">
+    <div className="flex h-dvh flex-col overflow-hidden bg-app">
       <TopBar workspaceId={workspaceId} readOnly={readOnly} />
       {readOnly && <ViewerNotice />}
-      <div className="lg:hidden shrink-0 border-b border-ink/5 bg-canvas px-3 py-1.5">
+      <div className="lg:hidden shrink-0 border-b border-ink/5 bg-white/60 px-3 py-1.5">
         <Segmented layoutId="view-pill-m" size="xs" value={viewMode === "focus" ? "graph" : viewMode} onChange={(v) => useUiStore.getState().setViewMode(v)} options={VIEWS} className="scrollbar-none w-full justify-between overflow-x-auto [&_svg]:hidden min-[420px]:[&_svg]:inline" />
       </div>
       <main className="relative min-h-0 flex-1">

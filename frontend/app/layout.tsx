@@ -18,7 +18,7 @@ export const viewport: Viewport = { themeColor: "#f5f1e8" };
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" className={`${unbounded.variable} ${poppins.variable}`}>
-      <body className="min-h-dvh bg-canvas antialiased">
+      <body className="min-h-dvh bg-app antialiased">
         <Providers>{children}</Providers>
       </body>
     </html>

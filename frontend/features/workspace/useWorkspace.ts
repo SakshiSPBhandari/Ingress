@@ -6,7 +6,7 @@
 import { useEffect, useRef } from "react";
 import { useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import type { GraphResponse, Session, WsClientMessage, WsServerMessage } from "@/types/api";
-import { conflictApi, radarApi, workspaceApi } from "@/lib/api";
+import { conflictApi, workspaceApi } from "@/lib/api";
 import { debounce } from "@/lib/utils/debounce";
 import { connectWorkspaceSocket, type WorkspaceSocket } from "@/lib/ws/socket";
 import { toast } from "@/lib/toast";
@@ -84,9 +84,7 @@ export function useWorkspace(workspaceId: string) {
 
   // Signals
   const conflicts = useQuery({ queryKey: qk.conflicts(workspaceId), queryFn: () => conflictApi.list(workspaceId) });
-  const radar = useQuery({ queryKey: qk.radar(workspaceId), queryFn: () => radarApi.get(workspaceId) });
   useEffect(() => void (conflicts.data && useSignalsStore.getState().setConflicts(conflicts.data)), [conflicts.data]);
-  useEffect(() => void (radar.data && useSignalsStore.getState().setRadar(radar.data)), [radar.data]);
 
   // WebSocket
   useEffect(() => {
@@ -123,10 +121,6 @@ export function useWorkspace(workspaceId: string) {
           break;
         case "conflict.updated":
           useSignalsStore.getState().upsertConflict(msg.data);
-          break;
-        case "radar.updated":
-          useSignalsStore.getState().setRadar(msg.data);
-          qc.setQueryData(qk.radar(workspaceId), msg.data);
           break;
         case "annotation.created":
           if (msg.by && msg.by !== myId() && msg.data.kind === "comment") {

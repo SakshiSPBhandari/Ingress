@@ -2,10 +2,10 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowCounterClockwise, Plug, PuzzlePiece, Robot, Trash, Wrench } from "@phosphor-icons/react";
+import { ArrowCounterClockwise, Plug, PuzzlePiece, Robot, Wrench } from "@phosphor-icons/react";
 import type { CreatedToken } from "@/types/api";
 import { tokensApi } from "@/lib/api";
-import { API_BASE_URL, API_MODE } from "@/lib/api/config";
+import { API_MODE, absoluteApiBase } from "@/lib/api/config";
 import { connectExtension } from "@/lib/extension/bridge";
 import { toast } from "@/lib/toast";
 import { timeAgo } from "@/lib/utils/format";
@@ -57,12 +57,13 @@ function Settings() {
   const { connected, simulated, setConnected, setSimulated } = useExtensionStore();
   const tokens = useQuery({ queryKey: ["tokens"], queryFn: tokensApi.list });
   const [fresh, setFresh] = useState<CreatedToken | null>(null);
-  const create = useMutation({ mutationFn: (k: "extension" | "mcp") => tokensApi.create(k, k === "mcp" ? "AI Assistant (MCP)" : "Chrome extension"), onSuccess: (t) => { setFresh(t); void qc.invalidateQueries({ queryKey: ["tokens"] }); toast.success("Token created", { description: "Copy it now — it is shown once." }); }, onError: (e) => toast.apiError(e) });
-  const revoke = useMutation({ mutationFn: tokensApi.revoke, onSuccess: () => { void qc.invalidateQueries({ queryKey: ["tokens"] }); toast.info("Token revoked"); } });
-  const mcpUrl = `${typeof window !== "undefined" ? window.location.origin : "http://localhost:3000"}${API_BASE_URL}/mcp`;
+  const create = useMutation({ mutationFn: (k: "extension" | "mcp") => tokensApi.create(k, k === "mcp" ? "AI Assistant (MCP)" : "Chrome extension"), onSuccess: (t) => { setFresh(t); void qc.invalidateQueries({ queryKey: ["tokens"] }); toast.success("MCP token created", { description: "Follow the steps below." }); }, onError: (e) => toast.apiError(e) });
+  const revoke = useMutation({ mutationFn: tokensApi.revoke, onSuccess: () => { void qc.invalidateQueries({ queryKey: ["tokens"] }); toast.info("Connection removed"); } });
+  const mcpTokens = (tokens.data ?? []).filter((t) => t.kind === "mcp");
+  const mcpUrl = `${absoluteApiBase()}/mcp`;
 
   return (
-    <div className="min-h-dvh bg-canvas pb-28 md:pb-12">
+    <div className="min-h-dvh bg-app pb-28 md:pb-12">
       <AppHeader />
       <main className="mx-auto max-w-3xl space-y-5 px-4 pt-8 sm:px-6">
         <div><Kicker tone="lavender">Settings</Kicker><h1 className="mt-3 text-[1.875rem] font-extrabold">Profile & connections</h1></div>
@@ -72,33 +73,48 @@ function Settings() {
           <div className="flex items-center gap-3"><ArtTile icon={PuzzlePiece} tone="mint" /><div className="flex-1"><h2 className="text-lg font-bold">Chrome extension</h2><p className="text-sm text-muted">Tracks tabs and time, captures pages and previews, powers Go to tab.</p></div><Pill tone={connected ? "mint" : "ink"}>{connected ? "Connected" : "Not connected"}</Pill></div>
           <div className="mt-4 flex flex-wrap gap-2">
             <Button variant="primary" size="sm" onClick={async () => { const ok = await connectExtension({ forceNewToken: true }).catch(() => false); setConnected(ok); if (ok) toast.success("Extension connected"); else toast.warning("Extension not found", { description: "Load the extension folder unpacked in chrome://extensions and set NEXT_PUBLIC_EXTENSION_ID." }); }}><Plug size={16} weight="bold" /> Connect extension</Button>
-            <Button variant="secondary" size="sm" loading={create.isPending} onClick={() => create.mutate("extension")}>Create extension token</Button>
           </div>
           {API_MODE === "mock" && <label className="mt-4 flex items-center justify-between gap-4 rounded-2xl bg-canvas p-3"><span><span className="block text-sm font-bold">Use browsing simulator (demo)</span><span className="text-xs text-muted">While tracking, a scripted research journey stands in for the extension.</span></span><Switch label="Use browsing simulator" checked={simulated} onCheckedChange={setSimulated} /></label>}
         </Card>
 
         <Card className="p-6">
-          <div className="flex items-center gap-3"><ArtTile icon={Robot} tone="purple" /><div><h2 className="text-lg font-bold">Connect an AI assistant (MCP)</h2><p className="text-sm text-muted">Any MCP-compatible AI assistant (Gemini CLI, Cursor, VS Code Cline, or Claude) can search your workspaces and add research nodes — directly into the “AI Agent” branch for your review.</p></div></div>
+          <div className="flex items-center gap-3"><ArtTile icon={Robot} tone="purple" /><div><h2 className="text-lg font-bold">Connect an AI assistant (MCP)</h2><p className="text-sm text-muted">Any AI assistant that supports MCP (Gemini CLI, Cursor, VS Code Cline or Claude) can search your workspaces and add pages and notes to your canvas.</p></div></div>
           <Button variant="purple" size="sm" className="mt-4" loading={create.isPending} onClick={() => create.mutate("mcp")}>Create MCP token</Button>
           {fresh && (
-            <div className="mt-4 space-y-3 rounded-2xl border-2 border-dashed border-purple/40 bg-lavender-soft/50 p-4">
-              <p className="text-xs font-bold text-purple-deep">New {fresh.kind} token — shown once</p>
-              <CopyField value={fresh.token} label="Bearer Token" />
-              {fresh.kind === "mcp" && (
-                <div className="space-y-2 pt-2">
-                  <p className="text-xs font-semibold text-muted">Gemini CLI command:</p>
-                  <CopyField value={`gemini mcp add -t http -H "Authorization: Bearer ${fresh.token}" --trust research-map ${mcpUrl}`} label="Gemini command" />
-                  <p className="text-xs font-semibold text-muted pt-1">Claude Code command:</p>
-                  <CopyField value={`claude mcp add --transport http research-map ${mcpUrl} --header "Authorization: Bearer ${fresh.token}"`} label="Claude command" />
+            <div className="mt-4 space-y-4 rounded-2xl border border-line bg-white p-4">
+              <div className="space-y-2">
+                <p className="text-sm font-bold text-ink">1. For Gemini CLI, run this once in Command Prompt (not inside Gemini):</p>
+                <CopyField value={`gemini mcp add -s user -t http -H "Authorization: Bearer ${fresh.token}" --trust research-map ${mcpUrl}`} label="Copy" />
+              </div>
+              <div className="space-y-2">
+                <p className="text-sm font-bold text-ink">2. Type <code className="rounded bg-canvas px-1.5 py-0.5 font-mono text-xs">gemini</code> to start it, then ask, for example:</p>
+                <CopyField value="Using Research Map, research the best CRM for our 20-person sales team. Set my goal as 'Pick a CRM for our sales team' and add every useful source." label="Copy" />
+              </div>
+              <details className="text-xs text-muted">
+                <summary className="cursor-pointer font-semibold">Using Claude Code or another AI tool?</summary>
+                <div className="mt-2 space-y-2">
+                  <p>Claude Code: run this in your terminal.</p>
+                  <CopyField value={`claude mcp add --transport http research-map ${mcpUrl} --header "Authorization: Bearer ${fresh.token}"`} label="Copy" />
+                  <p>Other tools: server address {mcpUrl}, with this key as a Bearer token. It is shown only once.</p>
+                  <CopyField value={fresh.token} label="Copy" />
                 </div>
-              )}
+              </details>
             </div>
           )}
-          <ul className="mt-4 divide-y divide-line">
-            {tokens.data?.map((t) => (
-              <li key={t.id} className="flex items-center gap-3 py-2 text-sm"><Pill tone={t.kind === "mcp" ? "purple" : "mint"}>{t.kind}</Pill><span className="flex-1 font-semibold">{t.name}</span><span className="text-xs text-muted">created {timeAgo(t.created_at)}</span><Button size="icon-sm" variant="ghost" aria-label="Revoke token" onClick={() => revoke.mutate(t.id)}><Trash size={16} /></Button></li>
-            ))}
-          </ul>
+          {!!mcpTokens.length && (
+            <div className="mt-5 border-t border-line pt-3">
+              <p className="text-xs font-bold text-muted">Your MCP tokens</p>
+              <ul className="mt-1 divide-y divide-line">
+                {mcpTokens.map((t) => (
+                  <li key={t.id} className="flex items-center gap-3 py-2 text-sm">
+                    <span className="flex-1 font-semibold">{t.name}</span>
+                    <span className="text-xs text-muted">added {timeAgo(t.created_at)}</span>
+                    <Button size="xs" variant="ghost" className="text-danger" onClick={() => revoke.mutate(t.id)}>Remove</Button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </Card>
         {API_MODE === "mock" && <DemoControls />}
       </main>

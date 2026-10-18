@@ -1,28 +1,18 @@
 "use client";
-/** Split authentication layout (DESIGN.md §6.2.3) with a product billboard. */
+/** Sign-in and sign-up layout: the form, next to a panel in the landing page colours that shows what the app does. */
 import type { ReactNode } from "react";
 import { motion } from "motion/react";
 import { Logo } from "@/components/shell/Logo";
-import { Kicker } from "@/components/ui/primitives";
 
 export function AuthShell({ children }: { children: ReactNode }) {
   return (
     <div className="grid min-h-dvh lg:grid-cols-[1fr_1.05fr]">
-      <aside className="relative hidden overflow-hidden border-r-2 border-ink bg-gradient-to-br from-[#efe9ff] via-[#e8ebff] to-[#ddefff] lg:block">
+      <aside className="relative hidden overflow-hidden border-r border-line bg-hero-glow lg:block">
         <div className="relative flex h-full flex-col justify-between p-10">
-          <Logo href="/login" />
-          <div>
-            <Kicker>Visual research workspace</Kicker>
-            <h1 className="mt-5 max-w-md text-balance text-[2.6rem] font-extrabold leading-[1.02] tracking-[-0.03em] text-ink">
-              Your tabs become a{" "}
-              <span className="relative inline-block">
-                <span className="relative z-10">knowledge canvas</span>
-                <span className="absolute inset-x-0 bottom-1 z-0 h-4 -rotate-1 rounded-full bg-sun" aria-hidden />
-              </span>
-              .
-            </h1>
-            <MiniMapVisual />
-          </div>
+          <Logo href="/" />
+          <h1 className="max-w-md text-balance font-display text-[2.4rem] font-black leading-[1.15] tracking-[-0.02em] text-ink">
+            Research with many tabs open? Track them all on one <span className="rounded-2xl bg-brand-gradient px-2">canvas.</span>
+          </h1>
           <div className="relative h-56">
             <motion.div
               initial={{ opacity: 0, y: 20, rotate: -2 }}
@@ -30,23 +20,18 @@ export function AuthShell({ children }: { children: ReactNode }) {
               transition={{ delay: 0.15, type: "spring", stiffness: 120, damping: 20 }}
               className="absolute left-0 top-0 w-72 rounded-[24px] border border-line bg-white p-4 shadow-pop-lg"
             >
-              <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-purple-deep">Why are these connected?</p>
-              <p className="mt-1.5 text-sm font-semibold text-ink">“Vector databases store and search embeddings in RAG pipelines.”</p>
-              <div className="mt-3 flex items-center gap-2 text-xs font-bold text-success">
-                <span className="h-2 w-16 overflow-hidden rounded-full bg-ink/10">
-                  <span className="block h-full w-[87%] rounded-full bg-success" />
-                </span>
-                87% confidence
-              </div>
+              <p className="text-xs font-semibold text-muted">Your goal</p>
+              <p className="mt-1 text-sm font-semibold text-ink">Pick a CRM for our 20-person sales team</p>
+              <p className="mt-3 text-xs text-muted">46 min on your goal · 4 min on other pages</p>
             </motion.div>
             <motion.div
-              initial={{ opacity: 0, y: 20, rotate: 5 }}
-              animate={{ opacity: 1, y: 0, rotate: 5 }}
+              initial={{ opacity: 0, y: 20, rotate: 4 }}
+              animate={{ opacity: 1, y: 0, rotate: 4 }}
               transition={{ delay: 0.3, type: "spring", stiffness: 120, damping: 20 }}
-              className="absolute left-64 top-20 w-60 rounded-[24px] border border-line bg-sun p-4 shadow-pop-lg"
+              className="absolute left-32 top-28 w-60 rounded-[24px] border border-line bg-white p-4 shadow-pop-lg"
             >
-              <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-sun-deep">Research Radar</p>
-              <p className="mt-1.5 text-sm font-semibold text-ink">Regulation appears under-covered in your workspace.</p>
+              <p className="text-sm font-bold text-ink">This page is not part of your goal</p>
+              <p className="mt-1 text-xs text-muted">Live cricket scores have nothing to do with choosing a CRM.</p>
             </motion.div>
           </div>
         </div>
@@ -65,41 +50,5 @@ export function AuthShell({ children }: { children: ReactNode }) {
         </motion.div>
       </main>
     </div>
-  );
-}
-
-/** Small knowledge-graph illustration: a browser page becomes a node and connects to related research. */
-function MiniMapVisual() {
-  // Widths leave room for the bold display font (~8.5px per character at 12px) plus the dot and padding.
-  const nodes = [
-    { x: 0, y: 52, w: 128, label: "Browser tab", fill: "#ffffff" },
-    { x: 162, y: 10, w: 112, label: "Page node", fill: "#fcf0df" },
-    { x: 162, y: 96, w: 112, label: "Paper", fill: "#c9e0d0" },
-    { x: 310, y: 52, w: 88, label: "Topic", fill: "#f8c9b4" },
-  ];
-  const mid = (i: number) => ({ x: nodes[i]!.x + nodes[i]!.w / 2, y: nodes[i]!.y + 15 });
-  const links: [number, number][] = [[0, 1], [0, 2], [1, 3], [2, 3], [1, 2]];
-  return (
-    <motion.svg
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: 0.1, duration: 0.5 }}
-      viewBox="0 0 400 140"
-      className="mt-8 w-full max-w-md overflow-visible"
-      role="img"
-      aria-label="A browser tab becoming connected research nodes"
-    >
-      {links.map(([a, b]) => (
-        <line key={`${a}-${b}`} x1={mid(a).x} y1={mid(a).y} x2={mid(b).x} y2={mid(b).y} stroke="#12151c" strokeWidth={2} strokeDasharray={a === 1 && b === 2 ? "5 5" : undefined} />
-      ))}
-      {nodes.map((n) => (
-        <g key={n.label}>
-          <rect x={n.x + 3} y={n.y + 3} width={n.w} height={30} rx={15} fill="#12151c" />
-          <rect x={n.x} y={n.y} width={n.w} height={30} rx={15} fill={n.fill} stroke="#12151c" strokeWidth={2} />
-          <circle cx={n.x + 15} cy={n.y + 15} r={4} fill="#ee7048" />
-          <text x={n.x + 25} y={n.y + 19.5} fontSize={12} fontWeight={700} fill="#12151c">{n.label}</text>
-        </g>
-      ))}
-    </motion.svg>
   );
 }

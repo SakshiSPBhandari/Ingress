@@ -12,7 +12,6 @@ import {
   NotePencil,
   Question,
   Sparkle,
-  Target,
   Warning,
 } from "@phosphor-icons/react";
 import type { ResearchNode } from "@/types/api";
@@ -174,7 +173,6 @@ export const QuestionNode = memo(function QuestionNode({ data, selected }: P) {
   const node = data.node;
   const accent = useAccent(node);
   const answers = useGraphStore((s) => s.edges.filter((e) => e.source === node.id && e.data?.edge.relation === "answers" && e.data.edge.state !== "rejected").length);
-  const { radar } = useNodeSignals(node);
   return (
     <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: "spring", stiffness: 420, damping: 24 }}>
       <Shell node={node} selected={!!selected} accent={accent} className="w-[248px] rounded-[24px] rounded-bl-md bg-sky-soft">
@@ -188,7 +186,6 @@ export const QuestionNode = memo(function QuestionNode({ data, selected }: P) {
             <span className={cn("rounded-full px-2 py-0.5", answers ? "bg-mint-soft text-mint-deep" : "bg-danger-soft text-danger")}>
               {answers ? `${answers} answer${answers === 1 ? "" : "s"}` : "No answers yet"}
             </span>
-            {radar && <Target size={14} weight="fill" className="text-danger" aria-label="Unanswered — on Research Radar" />}
           </div>
         </div>
       </Shell>
@@ -268,7 +265,7 @@ export const TopicNode = memo(function TopicNode({ data, selected }: P) {
   const node = data.node;
   const color = node.body || "#ee7048";
   const count = useGraphStore((s) => s.nodes.filter((n) => n.parentId === node.id).length);
-  const { radar, flash } = useNodeSignals(node);
+  const { flash } = useNodeSignals(node);
   const zoomedOut = useZoomedOut();
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(node.title);
@@ -320,11 +317,6 @@ export const TopicNode = memo(function TopicNode({ data, selected }: P) {
         {node.created_via === "ai" && !node.name_locked && (
           <span className="shrink-0 rounded-full bg-lavender-soft px-2 py-0.5 text-[10px] font-bold text-purple-deep" title="Group and name suggested by AI">
             <Sparkle size={10} weight="fill" className="mr-0.5 inline" />AI group
-          </span>
-        )}
-        {radar && (
-          <span className="shrink-0 rounded-full bg-danger px-2 py-0.5 text-[10px] font-bold text-white" title="Appears under-covered in your workspace">
-            <Target size={10} weight="fill" className="mr-0.5 inline" />Low coverage
           </span>
         )}
       </div>

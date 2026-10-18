@@ -44,11 +44,6 @@ export function useNodeSignals(node: ResearchNode) {
   const conflict = useSignalsStore((s) =>
     s.conflicts.some((c) => c.status === "open" && (c.node_a_id === node.id || c.node_b_id === node.id)),
   );
-  const radar = useSignalsStore((s) =>
-    !!s.radar?.items.some(
-      (i) => i.status === "open" && i.kind !== "unexplored_concept" && (i.node_id === node.id || (node.parent_id != null && i.topic_id === node.parent_id && i.kind === "low_coverage")),
-    ),
-  );
   const myId = useAuthStore((s) => s.user?.id);
   const viewer = useCollabStore((s) => s.presence.find((p) => p.id !== myId && p.selected_node_id === node.id));
   const flash = useGraphStore((s) => s.flashId === node.id);
@@ -56,5 +51,5 @@ export function useNodeSignals(node: ResearchNode) {
     const b = s.branches.find((x) => x.id === node.branch_id);
     return b && b.kind !== "main" ? b : null;
   });
-  return { conflict, radar, viewer, flash, otherBranch };
+  return { conflict, viewer, flash, otherBranch };
 }
