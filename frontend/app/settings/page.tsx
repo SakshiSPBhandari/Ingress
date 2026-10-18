@@ -2,7 +2,9 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowCounterClockwise, Plug, PuzzlePiece, Robot, Wrench } from "@phosphor-icons/react";
+import Link from "next/link";
+import { ArrowCounterClockwise, DownloadSimple, Plug, PuzzlePiece, Robot, Wrench } from "@phosphor-icons/react";
+import { EXTENSION_ZIP } from "@/features/extension/InstallGuide";
 import type { CreatedToken } from "@/types/api";
 import { tokensApi } from "@/lib/api";
 import { API_MODE, absoluteApiBase } from "@/lib/api/config";
@@ -72,7 +74,9 @@ function Settings() {
         <Card className="p-6">
           <div className="flex items-center gap-3"><ArtTile icon={PuzzlePiece} tone="mint" /><div className="flex-1"><h2 className="text-lg font-bold">Chrome extension</h2><p className="text-sm text-muted">Tracks tabs and time, captures pages and previews, powers Go to tab.</p></div><Pill tone={connected ? "mint" : "ink"}>{connected ? "Connected" : "Not connected"}</Pill></div>
           <div className="mt-4 flex flex-wrap gap-2">
-            <Button variant="primary" size="sm" onClick={async () => { const ok = await connectExtension({ forceNewToken: true }).catch(() => false); setConnected(ok); if (ok) toast.success("Extension connected"); else toast.warning("Extension not found", { description: "Load the extension folder unpacked in chrome://extensions and set NEXT_PUBLIC_EXTENSION_ID." }); }}><Plug size={16} weight="bold" /> Connect extension</Button>
+            <Button variant="primary" size="sm" onClick={async () => { const ok = await connectExtension({ forceNewToken: true }).catch(() => false); setConnected(ok); if (ok) toast.success("Extension connected"); else toast.warning("Extension not found", { description: "Install it first: open Install steps on this card and follow them." }); }}><Plug size={16} weight="bold" /> Connect extension</Button>
+            <Link href="/extension"><Button variant="secondary" size="sm">Install steps</Button></Link>
+            <a href={EXTENSION_ZIP} download><Button variant="ghost" size="sm"><DownloadSimple size={16} weight="bold" /> Download ZIP</Button></a>
           </div>
           {API_MODE === "mock" && <label className="mt-4 flex items-center justify-between gap-4 rounded-2xl bg-canvas p-3"><span><span className="block text-sm font-bold">Use browsing simulator (demo)</span><span className="text-xs text-muted">While tracking, a scripted research journey stands in for the extension.</span></span><Switch label="Use browsing simulator" checked={simulated} onCheckedChange={setSimulated} /></label>}
         </Card>

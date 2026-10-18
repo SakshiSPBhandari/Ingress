@@ -1,5 +1,6 @@
 "use client";
 /** Session report: key numbers, where the time went, a written summary with key points, and the sources. One page, also used for the PDF. */
+import { useEffect, useRef } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -46,6 +47,14 @@ function Report() {
     onSuccess: (r) => { qc.setQueryData(qk.report(sessionId), r); toast.ai("Writing the summary…", { description: "It uses the pages you read in this session." }); },
     onError: (e) => toast.apiError(e),
   });
+  // "Stop & generate report" opens this page with ?generate=1: write the summary once if there is none yet.
+  const autoGen = useRef(false);
+  useEffect(() => {
+    if (autoGen.current || !report.isFetched || report.data || new URLSearchParams(window.location.search).get("generate") !== "1") return;
+    autoGen.current = true;
+    window.history.replaceState(null, "", window.location.pathname);
+    gen.mutate();
+  }, [report.isFetched, report.data, gen]);
   const session = sessions.data?.find((s) => s.id === sessionId);
   const jump = (nodeId: string | null) => nodeId && router.push(`/w/${workspaceId}?node=${nodeId}`);
   const refNode = (n: number) => refs.data?.references.find((r) => r.ref_number === n)?.node_id ?? null;
