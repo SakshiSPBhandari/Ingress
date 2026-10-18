@@ -30,6 +30,8 @@ type Config struct {
 	SMTPHost, SMTPPort, SMTPUser, SMTPPassword, MailFrom string
 	// Google sign-in; turned off when GOOGLE_CLIENT_ID is empty.
 	GoogleClientID, GoogleClientSecret string
+	// Development only: email codes are returned in the response instead of emailed (automated tests).
+	DevAuthCodes bool
 }
 
 func (c Config) IsProduction() bool { return c.Env == "production" }
@@ -84,6 +86,10 @@ func Load() (Config, error) {
 	c.DBMaxConns = int32(intVar("DB_MAX_CONNS", 10, 1, 100, &errs))
 	c.MaxBodyBytes = int64(intVar("MAX_BODY_BYTES", 1<<20, 1024, 20<<20, &errs))
 	c.MigrateOnStart = boolVar("MIGRATE_ON_START", true, &errs)
+	c.DevAuthCodes = boolVar("DEV_AUTH_CODES", false, &errs)
+	if c.DevAuthCodes && c.Env == "production" {
+		errs = append(errs, errors.New("DEV_AUTH_CODES must not be used in production"))
+	}
 	c.ShutdownTimeout = durVar("SHUTDOWN_TIMEOUT", 20*time.Second, &errs)
 
 	if err := c.LogLevel.UnmarshalText([]byte(get("LOG_LEVEL", "info"))); err != nil {
