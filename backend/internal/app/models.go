@@ -202,6 +202,11 @@ type GoalTopic struct {
 	Covered bool   `json:"covered"`
 }
 
+// Page counts include only pages on the canvas: search results and pages left too quickly are checked
+// against the goal (their time still counts) but are not pages of the research.
+const onCanvas = `EXISTS (SELECT 1 FROM pages p JOIN nodes n ON n.page_id=p.id AND n.deleted_at IS NULL
+   WHERE p.workspace_id=s.workspace_id AND p.url_normalized=g.url_normalized)`
+
 const sessionSelect = `SELECT s.id,s.workspace_id,s.user_id,s.branch_id,s.title,s.started_at,s.ended_at,s.open_tabs,s.state,s.paused_ms,s.paused_at,
  (SELECT count(*) FROM session_references r WHERE r.session_id=s.id) AS pages_captured,
  (SELECT count(DISTINCT url_normalized) FROM visits v WHERE v.session_id=s.id) AS pages_visited,
@@ -211,8 +216,8 @@ const sessionSelect = `SELECT s.id,s.workspace_id,s.user_id,s.branch_id,s.title,
    JOIN goal_checks g ON g.session_id=v.session_id AND g.url_normalized=v.url_normalized WHERE v.session_id=s.id AND g.on_goal) AS goal_on_ms,
  (SELECT coalesce(sum(extract(epoch FROM v.ended_at-v.started_at)*1000),0)::bigint FROM visits v
    JOIN goal_checks g ON g.session_id=v.session_id AND g.url_normalized=v.url_normalized WHERE v.session_id=s.id AND NOT g.on_goal) AS goal_off_ms,
- (SELECT count(*) FROM goal_checks g WHERE g.session_id=s.id AND g.on_goal) AS goal_pages_on,
- (SELECT count(*) FROM goal_checks g WHERE g.session_id=s.id AND NOT g.on_goal) AS goal_pages_off
+ (SELECT count(*) FROM goal_checks g WHERE g.session_id=s.id AND g.on_goal AND `+onCanvas+`) AS goal_pages_on,
+ (SELECT count(*) FROM goal_checks g WHERE g.session_id=s.id AND NOT g.on_goal AND `+onCanvas+`) AS goal_pages_off
  FROM sessions s `
 
 type Member struct {
