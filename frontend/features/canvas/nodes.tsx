@@ -133,6 +133,11 @@ export const PageNode = memo(function PageNode({ data, selected }: P) {
       style={{ ...size, ...(ring ? { outline: `3px ${otherBranch ? "dashed" : "solid"} ${ring}`, outlineOffset: 3 } : {}) }}
     >
       {data.note && <span className="absolute right-2 top-11 z-10 rounded-full bg-ink px-2 py-0.5 text-[10px] font-semibold text-white">{data.note}</span>}
+      {data.order && (
+        <span className="absolute left-2 top-11 z-10 grid h-6 min-w-6 place-items-center rounded-full bg-brand-gradient px-1.5 text-[11px] font-black text-ink shadow-soft" title={`Page ${data.order} in the order you opened them`}>
+          {data.order}
+        </span>
+      )}
       {/* Browser tab strip */}
       <div className="flex h-9 items-end gap-1 bg-canvas-cool pl-2 pr-1.5" style={{ boxShadow: `inset 0 3px 0 ${accent}` }}>
         <div className="flex h-7 min-w-0 flex-1 items-center gap-1.5 rounded-t-[10px] bg-white px-2.5" title={node.title}>
@@ -324,10 +329,29 @@ export const TopicNode = memo(function TopicNode({ data, selected }: P) {
   );
 });
 
+/* ---------------------------------------------------------------- Cluster (layout only) */
+
+/** A soft box behind pages on the same topic or from the same search. Drawn by the layout, not stored. */
+const ClusterNode = memo(function ClusterNode({ data }: { data: { label: string; color: string; count: number } }) {
+  return (
+    <div
+      className="pointer-events-none h-full w-full rounded-[32px] border-2 border-dashed"
+      style={{ borderColor: `${data.color}55`, background: `${data.color}0d` }}
+    >
+      <div className="flex min-w-0 items-center gap-2 px-6 pt-5" title={data.label}>
+        <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: data.color }} />
+        <span className="min-w-0 truncate font-display text-lg font-bold text-ink">{data.label}</span>
+        <span className="shrink-0 whitespace-nowrap text-sm font-semibold text-muted">· {data.count} {data.count === 1 ? "page" : "pages"}</span>
+      </div>
+    </div>
+  );
+});
+
 export const nodeTypes = {
   page: PageNode,
   question: QuestionNode,
   note: NoteNode,
   finding: FindingNode,
   topic: TopicNode,
+  cluster: ClusterNode,
 };

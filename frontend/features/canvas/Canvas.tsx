@@ -165,11 +165,11 @@ export function Canvas({ readOnly }: { readOnly: boolean }) {
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onBeforeDelete={onBeforeDelete}
-        onNodeClick={(_, n) => selectNode(n.id)}
+        onNodeClick={(_, n) => n.type !== "cluster" && selectNode(n.id)}
         onPaneClick={() => {
           selectNode(null, false);
         }}
-        onNodeContextMenu={(e, n) => openCtx(e, n.id)}
+        onNodeContextMenu={(e, n) => (n.type === "cluster" ? !readOnly && openCtx(e) : openCtx(e, n.id))}
         onPaneContextMenu={(e) => !readOnly && openCtx(e)}
         onMove={(_, v) => keepViewValid(v)}
         onMoveEnd={(_, v) => [v.x, v.y, v.zoom].every(Number.isFinite) && useUiStore.getState().setViewport(v)}

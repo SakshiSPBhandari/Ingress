@@ -19,8 +19,8 @@ import type {
 } from "@/types/api";
 import { TOPIC_COLLAPSED } from "@/lib/graph/layout";
 
-/** note: a short grey label shown on pages outside the goal ("Not related to your goal"). */
-export type RFNode = Node<{ node: ResearchNode; note?: string }>;
+/** note: a short grey label shown on pages outside the goal ("Not related to your goal"). order: 1, 2, 3 … in the order pages were opened. */
+export type RFNode = Node<{ node: ResearchNode; note?: string; order?: number }>;
 export type RFEdge = Edge<{ edge: ResearchEdge }>;
 
 export function toRFNode(n: ResearchNode, parentCollapsed = false): RFNode {
