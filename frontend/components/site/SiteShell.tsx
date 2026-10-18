@@ -1,8 +1,8 @@
 "use client";
 /** Header and footer shared by the landing page and the explanation pages. */
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { Browsers } from "@phosphor-icons/react";
+import { Browsers, Cloud, X } from "@phosphor-icons/react";
 import { useAuthStore } from "@/stores/auth";
 import { useDemoLogin } from "./useDemoLogin";
 
@@ -11,6 +11,33 @@ const NAV = [
   { href: "/features", label: "Features" },
   { href: "/privacy", label: "Privacy" },
 ];
+
+// Where the product runs: the web app on Firebase Hosting, the server on Google Cloud Run.
+const FIREBASE_URL = "https://research-map-88f54.web.app";
+const CLOUD_RUN_STATUS = "https://research-map-api-812274791846.asia-southeast1.run.app/api/v1/readyz";
+
+/** A thin top bar that shows where the product is hosted. */
+function HostingBanner() {
+  const [open, setOpen] = useState(true);
+  if (!open) return null;
+  const link = "font-semibold text-white underline decoration-white/40 underline-offset-4 hover:decoration-white";
+  return (
+    <div className="bg-ink px-6 py-2.5 text-sm text-white/80">
+      <div className="mx-auto flex max-w-6xl items-center justify-center gap-3">
+        <Cloud size={18} weight="bold" className="shrink-0 text-white" />
+        <p className="text-center">
+          Hosted on Google Cloud: the web app runs on{" "}
+          <a href={FIREBASE_URL} target="_blank" rel="noreferrer" className={link}>Firebase Hosting</a>
+          {" "}and the server runs on{" "}
+          <a href={CLOUD_RUN_STATUS} target="_blank" rel="noreferrer" className={link}>Google Cloud Run</a>.
+        </p>
+        <button onClick={() => setOpen(false)} aria-label="Close" className="shrink-0 rounded-full p-1 text-white/70 transition hover:bg-white/10 hover:text-white">
+          <X size={14} weight="bold" />
+        </button>
+      </div>
+    </div>
+  );
+}
 
 /** hero: an optional top section. It is drawn together with the header on one full-width gradient. */
 export function SiteShell({ hero, children }: { hero?: ReactNode; children: ReactNode }) {
@@ -24,6 +51,7 @@ export function SiteShell({ hero, children }: { hero?: ReactNode; children: Reac
 
   return (
     <div className={`flex min-h-screen flex-col font-sans text-ink selection:bg-lavender ${hero ? "bg-white" : "bg-canvas"}`}>
+      <HostingBanner />
       <div className={hero ? "bg-hero-glow" : undefined}>
       <header className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-5 sm:px-8">
         <Link href="/" className="flex items-center gap-2.5">
@@ -66,7 +94,13 @@ export function SiteShell({ hero, children }: { hero?: ReactNode; children: Reac
             ))}
             <Link href="/login" className="hover:text-ink">Log in</Link>
           </nav>
-          <span>© 2026 Research Map</span>
+          <span className="flex items-center gap-4">
+            {/* The live server status, answered by the backend on Google Cloud Run. */}
+            <a href={CLOUD_RUN_STATUS} target="_blank" rel="noreferrer" className="font-semibold hover:text-ink">
+              Runs on Google Cloud Run
+            </a>
+            <span>© 2026 Research Map</span>
+          </span>
         </div>
       </footer>
     </div>

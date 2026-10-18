@@ -2,11 +2,16 @@
 
 An AI research workspace that turns browsing into a clear, shared map of what you read and learned. Powered by Google Gemini.
 
+### Live Deployment Evidence (Firebase Hosting)
+![Firebase Hosting Deployment](docs/firebase-deployment.png)
+
 | | |
 |---|---|
-| Live application | To be added after deployment |
-| Demo video | To be added |
-| Built with | Google Gemini API, Google Cloud Run, Next.js, Go, Python, PostgreSQL |
+| **Live Frontend** | [https://researhmap.in](https://researhmap.in) / [https://research-map-88f54.web.app](https://research-map-88f54.web.app) |
+| **Frontend Hosting** | Firebase Hosting (Google Cloud) |
+| **Backend API** | [https://research-map-api-812274791846.asia-southeast1.run.app/api/v1/readyz](https://research-map-api-812274791846.asia-southeast1.run.app/api/v1/readyz) |
+| **Backend & AI Hosting** | Google Cloud Run (asia-southeast1) |
+| **Built with** | Google Gemini API, Google Cloud Run, Firebase Hosting, Next.js, Go, Python, PostgreSQL |
 
 ---
 
@@ -186,13 +191,13 @@ Each result is shown on the canvas as soon as it is ready, so the user never wai
 
 ## Deployment on Google Cloud
 
-The application runs as three Google Cloud Run services:
+The web application is deployed on Firebase Hosting and the backend microservices run on Google Cloud Run:
 
-| Service | Source folder | Notes |
-|---|---|---|
-| Web app | `frontend/` | Public. Set `API_PROXY_TARGET` to the backend address. |
-| Backend | `backend/` | Public. Set `WEB_ORIGINS` to the web app address and `AGENT_URL` to the AI service address. The request timeout should be 60 minutes, so that AI assistant (MCP) connections stay open. |
-| AI service | `agent/` | Called only by the backend. Gemini API keys are stored in Secret Manager. |
+| Service | Platform | Source folder | Live URL / Endpoint | Notes |
+|---|---|---|---|---|
+| Frontend Web App | Firebase Hosting (Google Cloud) | `frontend/` | [https://researhmap.in](https://researhmap.in) / [https://research-map-88f54.web.app](https://research-map-88f54.web.app) | Public global edge CDN hosting with custom domain and SSL. |
+| Backend API | Google Cloud Run | `backend/` | [Cloud Run Readyz Endpoint](https://research-map-api-812274791846.asia-southeast1.run.app/api/v1/readyz) | Public auto-scaling container. Handles REST APIs, WebSockets, and long-lived MCP assistant connections. |
+| AI Service | Google Cloud Run | `agent/` | Internal Cloud Run | Private microservice called by backend. Gemini API keys are securely stored in Secret Manager. |
 
 The database is a managed PostgreSQL instance with the pgvector extension. The backend creates and updates the tables when it starts.
 
@@ -205,7 +210,7 @@ After deployment, the web app address is added to `externally_connectable` in `e
 | Layer | Technologies |
 |---|---|
 | AI | Google Gemini API (`gemini-flash-latest`, `gemini-flash-lite-latest`), FastEmbed |
-| Cloud | Google Cloud Run, Secret Manager |
+| Cloud | Firebase Hosting, Google Cloud Run, Secret Manager |
 | Web app | Next.js 16, React 19, React Flow, Zustand, TanStack Query, Tailwind CSS |
 | Backend | Go, Gin, pgx, goose migrations, WebSocket, MCP Go SDK |
 | AI service | Python, FastAPI, httpx |
